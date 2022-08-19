@@ -1,0 +1,214 @@
+---
+ ######## Registration paramteres ########
+ # where the microscope 3D data is stored
+ dir_data_raw: "/media/NAS2/Users/Kian_NAS2/DART_FISH/Raw/220601_PolyATest/K2100233_2-4/"
+
+ # where the maximum projected data is stored
+ proj_dir: "../2_Projected/"
+
+ # where the registered data is stored
+ reg_dir: "../1_Registered/"
+
+ # list of all rounds to be registered
+ # reg_rounds: ["0_anchor2_512", "1_dc0_512", "2_dc1", "3_dc2", "5_dc4", "6_dc5", "7_dc6", "8_dc0_redo", "9_dc3_redo", "10_anchor_redo", "11_DRAQ5"]
+ reg_rounds: ["8_dc0_redo", "2_dc1", "3_dc2", "9_dc3_redo", "5_dc4", "6_dc5", "7_dc6", "10_anchor_redo", "11_DRAQ5"]
+
+ # reference cycle for registration 
+ ref_reg_cycle: "5_dc4" 
+
+ # where the microscope metadata is. Set to null if metadata is here: dir_data_raw/ref_reg_cycle/MetaData/ref_reg_cycle.xml
+ metadata_file: null
+
+ # number of iterations for registration
+ reg_maxIter: 400
+
+ # number of resolutions for image pyramid, typically 5
+ NumberOfResolutions: 7
+ 
+ # pre-mipping smoothing method. Either "gaussian" or "median"
+ smooth_method: "gaussian" # median
+
+ # sigma if smooth_method=="gaussian", window size if smooth_method=="median"
+ smooth_degree: 0.5 # 3
+
+ # channel for registration on all cycles except those specified in `cycle_other`
+ ref_reg_ch: "ch01" # DIC channel for reference cycle
+ 
+ # A dictionary. Keys are the names of the cycles that are different from the ref cycle. Values are the channel used for registration
+ cycle_other: {} # example: {"9_DRAQ5" : "ch00"}
+ 
+ # number of parallel jobs for registration
+ reg_npool: 7
+
+ # number of parallel jobs for maximum intensity projection
+ mip_npool: 10
+
+ # Skip maximum intensity projection (for troubleshooting)
+ skip_mip: false
+
+ # two channel rounds: list of rounds that only have ch00 and ch01
+ twoChannelRounds: 11_DRAQ5 # ["9_DRAQ5"]
+
+
+ 
+
+ ######## Background subtraction paramteres ########
+ # if there is a background cycle to subtract from all other cycles
+ background_subtraction: false
+
+ # background cycles names. Doesn't matter if `background_subtraction` is false. 
+ background_cycles: ["4_Empty"]
+
+ # where to write background subtraction results. 
+ background_subt_dir: "../2_Registered/Background_subtracted/"
+
+ # channels to do background subtraction on
+ subtraction_channels: ['ch00', 'ch02', 'ch03']
+
+
+
+
+ ######## Stitching paramteres ########
+ # where stitching results are saved 
+ stitch_dir: "../2_Projected/stitched/"
+
+ # rounds to be stitched. Has to be compatible with `reg_rounds`
+ stch_rounds: ["5_dc4", "6_dc5", "7_dc6", "8_dc0_redo", "9_dc3_redo", "10_anchor_redo", "11_DRAQ5", "2_dc1", "3_dc2"]
+
+ # the round to be used as the reference for stitching. if null, uses `ref_reg_cycle`
+ stitchRefCycle: null # or "5_dc3"
+
+ # default reference channel for stitching, if null uses ref_reg_ch
+ stitchChRef: null # or "ch01"
+
+ # Image-j path
+ ij_path: "/media/Home_Raid1_Voyager/kian/Codes/DART-FISH/image_stitching/Fiji.app/ImageJ-linux64"
+
+ # the regex pattern with the file names
+ stchFilePattern: "(?P<intro>MIP_REG)_(?P<rndName>\\d+_\\S+)?_(?P<fov>FOV\\d+)_(?P<ch>ch\\d+)\\S*.tif$" # 0: all, 1: MIP_rnd#, 2:dc/DRAQ, 3: FOV, 4: ch
+ 
+ # the regex pattern for fov names
+ fov_pat: "FOV(\\d+)" # pattern to extract the fov# 
+
+ # the background image for the fov map: [round, channel]
+ fovMap_bg : ["10_anchor_redo", "ch03"]
+
+
+
+
+ ######## Starfish format paramteres ########
+ # rounds for decoding. The order has to match the codebook
+ dc_rounds: ["8_dc0_redo", "2_dc1", "3_dc2", "9_dc3_redo", "5_dc4", "6_dc5", "7_dc6"]
+
+ # the nuclear stain round
+ stain_round: "11_DRAQ5"
+
+ # directory for starfish data
+ starfish_dir: "../3_Decoded/data_Starfish"
+
+ # path to codebook
+ codebook_path: "_codebook/HLK2021_kidney_codebook.json"
+
+ # number of decoding rounds
+ n_rounds: 7
+
+ # number of fluorescent channels
+ n_fluor_ch: 3
+
+ # number of z-planes for decoding
+ n_zplanes: 24
+
+
+
+
+ ######## Decoding paramteres ########
+ # where decoding results will be stored + prefix
+ dc_out: "../3_Decoded/output_Starfish_max250"
+
+ # barcode magnitude to use
+ bcmag: 0.4
+
+ # binarize in Starfish decoding 
+ dc_binarize: false
+
+ # intensities are scaled such that values higher than this are set to 255. Set to null for no normalization
+ max_intensity: 250
+
+ # intensities below this value are set to 0
+ min_intensity: 1
+
+ # valid area range for rolonies
+ rolony_area: [2, 100]
+
+ # number of pools for decoding
+ dc_npool: 8
+
+
+
+ ######## Combining FOV's paramteres ########
+ # maximum fraction of empty barcodes in a spot's neighborhood. Use "infer" for automatic finding of the value
+ emptyFractionThresh: "infer" # 0.2
+
+ # radius in pixels for removing rolonies in overlapping boundaries
+ overlapRemovalRadius: 4.5
+
+ # No. nearest neighbors for calculating local empty rate in the space of 1st and 2nd distance to barcode
+ distance_nn_K: 100
+
+ # fraction of spots per field of view to be used for the distance nearest neighbor model
+ distance_nn_frac: 0.1
+ 
+
+ ######## Segmentation paramteres ########
+ # where the segmentation and assignment files are saved
+ seg_dir: "../4_CellAssignment"
+
+ # name of the model to use. String (for built-in models) or full path to the model (e.g., custom model)
+ pretrained_model: "/media/Home_Raid1_Voyager/kian/.cellpose/custom_models/CP_20220415_102241" #"nuclei" # "cyto" # "CP"
+
+ # segmentation type for Cellpose. Options: 
+ #  1) "nuc": only nuclei, 2) "cyto": only cytoplasm, 
+ #  3) "nuc+cyto": cytoplasm segmentation with aid from nuclear stain
+ segmentation_type: "nuc+cyto"
+
+ # the round name that contains nuclear stain. Doesn't matter if segmentation_type == 'cyto'
+ nuc_rnd : "11_DRAQ5" 
+
+ # channel for nuclear stain in `nuc_rnd`. Doesn't matter if segmentation_type == 'cyto'
+ nuc_ch: "ch00"
+
+ # the round name that contains cytoplasmic stain. Doesn't matter if segmentation_type == 'nuc'
+ cyto_rnd : "10_anchor_redo"
+
+ # channel for cyto stain in `cyto_rnd`. Doesn't matter if segmentation_type == 'nuc'
+ cyto_ch: "ch03"
+
+ # flow_threshold parameter of cellpose. Increase if many missing cells, decrease if too many spurious cells. Default 0.4
+ flow_threshold: 0.8 # 0.4
+
+ # average diameter of cells (for "cyto" and "nuc+cyto") or nuclei (for "nuc") in pixels
+ seg_diam: 23
+
+ # suffix for generated files. Could be "".
+ seg_suf: "_custom"
+ 
+ # whether to skip the segmentation. For troubleshooting
+ skip_seg: true
+
+ # number of cores for finding centroids
+ centroid_npool: 10
+
+ # maximum acceptable distance of rolonies to their closest cell in pixels
+ max_rol2nuc_dist: 150
+
+
+ ######## QC paramteres ########
+ # where the qc files will be stored
+ qc_dir : "../5_Analysis" 
+
+ # name of anchor round 
+ anc_rnd: "10_anchor_redo"
+
+ # anchor channel, where all rolonies are on
+ anc_ch: "ch00"
+ 
