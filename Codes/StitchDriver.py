@@ -272,6 +272,6 @@ if len(bgfile) > 1:
 bgImg = imread(os.path.join(stitch_dir, bgfile[0]))
 npix, _, _ = getMetaData(metadataFile)
 
-plotFOVMap(bgImg, coords_file=os.path.join(stitch_dir, 'registration_reference_coordinates.csv'), figure_height=50, 
+plotFOVMap(bgImg, coords_file=os.path.join(stitch_dir, 'registration_reference_coordinates.csv'), figure_height=12, 
     savefile=os.path.join(stitch_dir, "fov_map.pdf"), fov_size_px=npix)
 

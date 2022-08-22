@@ -115,27 +115,27 @@ spot_df.to_csv(path.join(saving_path, 'spots_assigned{}.tsv'.format(suff)), sep 
 
 print("end of segmentation driver")
 
-# # finding the cells cell information: centroid and area
-# cellInfos = mask2centroid(mask, ncore = params['centroid_npool'])
-# centroid_df = pd.DataFrame({'cell_label' : np.arange(1, mask.max() + 1), 
-#                             'centroid_x' : cellInfos[:, 0], 'centroid_y' : cellInfos[:, 1],
-#                             'area' : cellInfos[:, 2]})
-# centroid_df.to_csv(path.join(saving_path, 'cell_info{}.tsv'.format(suff)), sep = '\t', index = False)
+# finding the cells cell information: centroid and area
+cellInfos = mask2centroid(mask, ncore = params['centroid_npool'])
+centroid_df = pd.DataFrame({'cell_label' : np.arange(1, mask.max() + 1), 
+                            'centroid_x' : cellInfos[:, 0], 'centroid_y' : cellInfos[:, 1],
+                            'area' : cellInfos[:, 2]})
+centroid_df.to_csv(path.join(saving_path, 'cell_info{}.tsv'.format(suff)), sep = '\t', index = False)
 
-# # # plotting the cells with their label
-# # print('Plotting cell map')
-# # cellInfos = pd.read_csv(path.join(saving_path, 'cell_info{}.tsv'.format(suff)), sep="\t").to_numpy()[:, 1:]
-# # cellm_thr = threading.Thread(target = cellmap_plot, 
-# #                                 kwargs = {'cellInfos' : cellInfos, 'bgImg' : bgImg, 
-# #                                 'savepath' : path.join(saving_path, 'cell_map{}.png'.format(suff)), 
-# #                                 'fwidth' : fwidth, 'fheight' : fheight})
-# # cellm_thr.start()
+# # plotting the cells with their label
+# print('Plotting cell map')
+# cellInfos = pd.read_csv(path.join(saving_path, 'cell_info{}.tsv'.format(suff)), sep="\t").to_numpy()[:, 1:]
+# cellm_thr = threading.Thread(target = cellmap_plot, 
+#                                 kwargs = {'cellInfos' : cellInfos, 'bgImg' : bgImg, 
+#                                 'savepath' : path.join(saving_path, 'cell_map{}.png'.format(suff)), 
+#                                 'fwidth' : fwidth, 'fheight' : fheight})
+# cellm_thr.start()
 
-# # Making the cell by gene matrix
-# print('Making cell by gene matrix')
-# spot_df = spot_df.loc[spot_df['dist2cell'] <= params['max_rol2nuc_dist']] # filtering rolonies based on distance to cell
-# nuc_gene_df = spot_df[['cell_label', 'gene']].groupby(by = ['cell_label', 'gene']).size()
-# nuc_gene_df = nuc_gene_df.reset_index().pivot(index = 'cell_label', columns = 'gene').fillna(0).astype(int)
-# nuc_gene_df.columns = nuc_gene_df.columns.droplevel()
-# nuc_gene_df.to_csv(path.join(saving_path, 'cell-by-gene{}.tsv'.format(suff)), sep = '\t')
+# Making the cell by gene matrix
+print('Making cell by gene matrix')
+spot_df = spot_df.loc[spot_df['dist2cell'] <= params['max_rol2nuc_dist']] # filtering rolonies based on distance to cell
+nuc_gene_df = spot_df[['cell_label', 'gene']].groupby(by = ['cell_label', 'gene']).size()
+nuc_gene_df = nuc_gene_df.reset_index().pivot(index = 'cell_label', columns = 'gene').fillna(0).astype(int)
+nuc_gene_df.columns = nuc_gene_df.columns.droplevel()
+nuc_gene_df.to_csv(path.join(saving_path, 'cell-by-gene{}.tsv'.format(suff)), sep = '\t')
 

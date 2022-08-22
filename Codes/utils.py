@@ -66,14 +66,14 @@ from matplotlib import pyplot as plt
 from skimage.io import imshow
 from matplotlib.patches import Rectangle
 
-def plotFOVMap(bgImg, coords_file="registration_reference_coordinates.csv", figure_height=50, savefile="./fov_map.pdf", fov_size_px=1024):
+def plotFOVMap(bgImg, coords_file="registration_reference_coordinates.csv", figure_height=12, savefile="./fov_map.pdf", fov_size_px=1024):
     tile_coords = pd.read_csv(coords_file)
     tile_coords['x'] = (tile_coords['x'] - tile_coords['x'].min()).astype(int)
     tile_coords['y'] = (tile_coords['y'] - tile_coords['y'].min()).astype(int)
 
     fwidth = int(figure_height / bgImg.shape[0] * bgImg.shape[1])
 
-    fig, ax = plt.subplots(figsize=(10, 20))
+    fig, ax = plt.subplots(figsize=(fwidth, figure_height))
     imshow(bgImg)
 
     for i, row in tile_coords.iterrows():
