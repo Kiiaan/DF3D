@@ -15,7 +15,7 @@ from datetime import datetime
 
 class ThreeDimensionalAligner():
     def __init__(self, movingImgFiles, refImgFiles, transform = "affine", NumberOfResolutions = 5, MaximumNumberOfIterations = 1000, 
-                    NumberOfSpatialSamples = 4000, transParamFile = None, voxelSize = (0.0001, 0.0001, 0.001)):
+                    NumberOfSpatialSamples = 4000, transParamFile = None, voxelSize = (0.0001, 0.0001, 0.001), AutomaticScale = True, Scales=['2']):
         self.movingImgFiles = movingImgFiles
         self.refImgFiles = refImgFiles
         self.transform = transform
@@ -24,6 +24,8 @@ class ThreeDimensionalAligner():
         self.NumberOfSpatialSamples = NumberOfSpatialSamples
         self.transParamFile = transParamFile
         self.voxelSize = voxelSize
+        self.AutomaticScale = AutomaticScale
+        self.Scales = Scales
         
     def findTransformParameters(self):   
         """ running elastix on moving and ref images to find the transform parameter map between them """
@@ -36,8 +38,13 @@ class ThreeDimensionalAligner():
         parameterMap['NumberOfResolutions'] = [str(self.NumberOfResolutions)] # number of resolution-decreasing alignments. This is the most critical parameter
         parameterMap['NumberOfSpatialSamples'] = [str(self.NumberOfSpatialSamples)] # number of random samples drawn for image comparison during optimization
         parameterMap['WriteIterationInfo'] = ['true'] # This command writes the report in the current working directory, so we have to move the files later    
-        parameterMap['AutomaticScalesEstimation'] = ["false"]
-        parameterMap['Scales'] = ['2']  # the rotations we expect (in radians) are almost in the same order of magnitude as the translations we expect (in mm)
+        parameterMap['AutomaticTransformInitialization'] = ['true']
+        parameterMap['AutomaticTransformInitializationMethod'] = ['CenterOfGravity']
+        if self.AutomaticScale: # if the scale of parameters is to be found automatically
+            parameterMap['AutomaticScalesEstimation'] = ["true"]
+        else:
+            parameterMap['AutomaticScalesEstimation'] = ["false"]
+            parameterMap['Scales'] = self.Scales  # the rotations we expect (in radians) are almost in the same order of magnitude as the translations we expect (in mm)
 
         
         self.elastixImageFilter.SetParameterMap(parameterMap) # setting the parameter map to our transformation object
@@ -79,11 +86,16 @@ class ThreeDimensionalAligner():
         im = sitk.ReadImage(self.movingImgFiles)
         im.SetSpacing(self.voxelSize)
         return(im)
-    
+        # im = sitk.DiscreteGaussian(sitk.Cast(im, sitk.sitkFloat32), 3, 32, 0.01, False) # sigma, kernel width, max error, useImageSpacing
+        # return(sitk.Cast(im, sitk.sitkUInt8))
+        
     def readRefImage(self):
         im = sitk.ReadImage(self.refImgFiles)
         im.SetSpacing(self.voxelSize)
         return(im)
+        # im = sitk.DiscreteGaussian(sitk.Cast(im, sitk.sitkFloat32), 3, 32, 0.01, False) # sigma, kernel width, max error, useImageSpacing
+        # return(sitk.Cast(im, sitk.sitkUInt8))
+        
 
     def readImage(self, path):
         im = sitk.ReadImage(path)

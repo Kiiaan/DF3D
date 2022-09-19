@@ -2,6 +2,11 @@ import xml.etree.ElementTree as ET
 import numpy as np 
 import os
 
+import pandas as pd
+from matplotlib import pyplot as plt
+from skimage.io import imshow
+from matplotlib.patches import Rectangle
+
 
 def getMetaData(metadataXml):
 	""" parses a metadata .xml file and returns 
@@ -60,11 +65,6 @@ def getTileLocs(metadataXml):
         tiles_px.append((pos_x, pos_y))
     return tiles_px
 
-
-import pandas as pd
-from matplotlib import pyplot as plt
-from skimage.io import imshow
-from matplotlib.patches import Rectangle
 
 def plotFOVMap(bgImg, coords_file="registration_reference_coordinates.csv", figure_height=12, savefile="./fov_map.pdf", fov_size_px=1024):
     tile_coords = pd.read_csv(coords_file)
