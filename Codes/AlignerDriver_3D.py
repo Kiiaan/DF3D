@@ -181,10 +181,7 @@ partial_align = functools.partial(alignFOV, out_mother_dir=dir_output_aligned, r
 
 t1 = time()
 
-# fov_names = ["s" + str(n).zfill(len(str(n_fovs))) for n in range(n_fovs)]
-# fov_names = ["s" + str(n).zfill(len(str(n_fovs))) for n in range(250, n_fovs)] # run halted in the middle
-# fov_names = ['s203', 's221', 's239', 's194', 's248', 's104']
-fov_names = ['s249']
+fov_names = ["s" + str(n).zfill(len(str(n_fovs))) for n in range(n_fovs)]
 with Pool(n_pool) as P:
     list(P.map(partial_align, fov_names))
 
