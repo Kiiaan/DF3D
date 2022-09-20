@@ -91,7 +91,8 @@ n_pool = params['mip_npool']
 
 channelDict = dict((rnd,['ch00', 'ch01', 'ch02', 'ch03']) if rnd not in twoChRnds else (rnd,['ch00', 'ch01']) for rnd in rnd_list)
 
-pat3d = "REG_(?P<rndName>\\S+)?_(?P<fov>FOV\\d+)_(?P<z>z\\d+)_(?P<ch>ch\\d+)\\S*.tif$" # 0: all, 1: rnd, 2:fov, 3: z, 4: ch
+pat3d = "REG_" + params['filePat3d'].format("FOV")
+print(pat3d)
 regex_3d = re.compile(pat3d)
 
 partial_align = functools.partial(mipFOV, out_mother_dir=dir_output, round_list=rnd_list, 
@@ -101,6 +102,7 @@ t1 = time()
 
 fov_names = ["FOV" + str(n).zfill(len(str(n_fovs))) for n in range(n_fovs)]
 
+# partial_align(fov_names[0])
 with Pool(n_pool) as P:
     list(P.map(partial_align, fov_names))
 

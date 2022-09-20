@@ -166,7 +166,7 @@ transform = params['reg_transform'] # translation, rigid, or affine
 autoScale = params['AutomaticScaleEstimation'] # binary. If params scales are to be estimated by elastix
 param_scales = params['params_scales'] # scale of parameters set manually
 
-pat3d = "(?P<rndName>\\S+)?_(?P<fov>s\\d+)_(?P<z>z\\d+)_(?P<ch>ch\\d+)\\S*.tif$" # 0: all, 1: rnd, 2:fov, 3: z, 4: ch
+pat3d = params['filePat3d'].format("s")
 regex_3d = re.compile(pat3d)
 
 
@@ -181,7 +181,10 @@ partial_align = functools.partial(alignFOV, out_mother_dir=dir_output_aligned, r
 
 t1 = time()
 
-fov_names = ["s" + str(n).zfill(len(str(n_fovs))) for n in range(n_fovs)]
+# fov_names = ["s" + str(n).zfill(len(str(n_fovs))) for n in range(n_fovs)]
+# fov_names = ["s" + str(n).zfill(len(str(n_fovs))) for n in range(250, n_fovs)] # run halted in the middle
+# fov_names = ['s203', 's221', 's239', 's194', 's248', 's104']
+fov_names = ['s249']
 with Pool(n_pool) as P:
     list(P.map(partial_align, fov_names))
 
