@@ -7,6 +7,8 @@ import requests as rq
 from zipfile import ZipFile
 import subprocess as sp
 import errno
+import tifffile
+from skimage.io import imread
 
 class IJ_Stitch:
     def __init__(self, input_dir, output_dir, imagej_path = None, Type = 'Grid: row-by-row', 
@@ -164,11 +166,19 @@ class IJ_Stitch:
         return coms
 
     
+    # def changeOutputName(self, output_dir, new_name = None):
+    #     if new_name is None:
+    #         new_name = re.sub(r"_[^_]+{[i]+}", '', self.file_names) # removing _FOV{iii} from the name
+    #     os.rename(os.path.join(output_dir, 'img_t1_z1_c1'), os.path.join(output_dir, new_name))
+    
     def changeOutputName(self, output_dir, new_name = None):
+        """ This function renames the output and also compresses it """
         if new_name is None:
             new_name = re.sub(r"_[^_]+{[i]+}", '', self.file_names) # removing _FOV{iii} from the name
         os.rename(os.path.join(output_dir, 'img_t1_z1_c1'), os.path.join(output_dir, new_name))
-        
+        im = imread(os.path.join(output_dir, new_name))
+        tifffile.imwrite(os.path.join(output_dir, new_name), im, imagej=True, photometric = 'minisblack', compression="zlib")
+
     @staticmethod
     def getImageJ(pathOrFile):
         """ Downloads FIJI. If given a directory, will save a FIJI there. 
