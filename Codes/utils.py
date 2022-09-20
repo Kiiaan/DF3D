@@ -65,6 +65,12 @@ def getTileLocs(metadataXml):
         tiles_px.append((pos_x, pos_y))
     return tiles_px
 
+def getNumSections(metadataXml):
+    """ Parses a metadata file to find the number of sections"""
+    tree = ET.parse(metadataXml)
+    root = tree.getroot()
+    settings = [elem for elem in root.iter() if elem.tag == "ATLConfocalSettingDefinition"][0]
+    return(int(settings.attrib['Sections']))
 
 def plotFOVMap(bgImg, coords_file="registration_reference_coordinates.csv", figure_height=12, savefile="./fov_map.pdf", fov_size_px=1024):
     tile_coords = pd.read_csv(coords_file)
