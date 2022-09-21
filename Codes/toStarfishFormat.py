@@ -84,7 +84,7 @@ class DARTFISHPrimaryTileFetcher(TileFetcher):
 		return round_dict
 
 	def get_tile(self, fov: int, r: int, ch: int, z: int) -> FetchedTile:
-		filename = "REG_{}_FOV{}_z{:02}_{}.tif".format(self.round_dict[r],
+		filename = "{}_FOV{}_z{:02}_{}.tif".format(self.round_dict[r],
 												format_fov(fov),
 												z,
 												self.ch_dict[ch]
@@ -101,7 +101,7 @@ class DARTFISHnucleiTileFetcher(TileFetcher):
 		self.path = path
 
 	def get_tile(self, fov: int, r: int, ch: int, z: int) -> FetchedTile:
-		file_path = os.path.join(self.path,"FOV{}".format(format_fov(fov)),"REG_{}_FOV{}_z{:02}_ch00.tif".format(RND_DRAQ5,format_fov(fov), z))
+		file_path = os.path.join(self.path,"FOV{}".format(format_fov(fov)),"{}_FOV{}_z{:02}_{}.tif".format(RND_DRAQ5,format_fov(fov), z, nuc_ch))
 		return DARTFISHTile(file_path)
 
 class DARTFISHbrightfieldTileFetcher(TileFetcher):
@@ -109,7 +109,7 @@ class DARTFISHbrightfieldTileFetcher(TileFetcher):
 		self.path = path
 
 	def get_tile(self, fov: int, r: int, ch: int, z: int) -> FetchedTile:
-		file_path = os.path.join(self.path,"FOV{}".format(format_fov(fov)),"REG_{}_FOV{}_z{:02}_ch01.tif".format(RND_ALIGNED,format_fov(fov), z))
+		file_path = os.path.join(self.path,"FOV{}".format(format_fov(fov)),"{}_FOV{}_z{:02}_{}.tif".format(RND_ALIGNED,format_fov(fov), z, algn_ch))
 		return DARTFISHTile(file_path)
 
 
@@ -197,6 +197,8 @@ params = yaml.safe_load(open(args.param_file, "r"))
 RND_LIST = params['dc_rounds']
 RND_ALIGNED = params['ref_reg_cycle']
 RND_DRAQ5 = params['stain_round']
+nuc_ch = params['nuc_ch'] # channel for nuclear stain. Doesn't actually matter
+algn_ch = params['ref_reg_ch'] # channel used for alignment, i.e. brightfield
 
 if params['metadata_file'] is None:
 	metadataFile = os.path.join(params['dir_data_raw'], RND_ALIGNED, 'MetaData', "{}.xml".format(RND_ALIGNED))
