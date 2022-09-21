@@ -57,6 +57,8 @@
  # two channel rounds: list of rounds that only have ch00 and ch01
  twoChannelRounds: ["8_DRAQ5"]
 
+ # the regex for the file names of the 3d files. The brackets are used to replace with "s" or "FOV" for fov indicators
+ filePat3d: "(?P<rndName>\\S+)?_(?P<fov>{}\\d+)_(?P<z>z\\d+)_(?P<ch>ch\\d+)\\S*.tif$" # 0: all, 1: rnd, 2:fov, 3: z, 4: ch
 
  
 
