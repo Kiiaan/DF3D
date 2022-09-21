@@ -207,8 +207,8 @@ npix, vox, number_of_fovs = getMetaData(metadataFile)
 SHAPE = {Axes.ZPLANE: npix['3'], Axes.Y: npix['2'], Axes.X: npix['1']}
 VOXEL = {"Y":vox['2'], "X":vox['1'], "Z":vox['3']}
 
-n_zplanes = params['n_zplanes'] if params['n_zplanes'] is None else getNumSections(metadataFile)
-	
+n_zplanes = params['n_zplanes'] if not params['n_zplanes'] is None else getNumSections(metadataFile)
+
 input_dir = params['background_subt_dir'] if params['background_subtraction'] else params['reg_dir']
 output_dir = params['starfish_dir']
 codebook_path = params['codebook_path']
