@@ -17,7 +17,7 @@ from starfish.experiment.builder import FetchedTile, TileFetcher
 from starfish.experiment.builder import write_experiment_json
 from starfish.types import Axes, Coordinates, Features, Number
 from shutil import copy2
-from utils import getMetaData
+from utils import getMetaData, getNumSections
 import yaml
 
 class DARTFISHTile(FetchedTile):
@@ -207,6 +207,7 @@ npix, vox, number_of_fovs = getMetaData(metadataFile)
 SHAPE = {Axes.ZPLANE: npix['3'], Axes.Y: npix['2'], Axes.X: npix['1']}
 VOXEL = {"Y":vox['2'], "X":vox['1'], "Z":vox['3']}
 
+n_zplanes = params['n_zplanes'] if params['n_zplanes'] is None else getNumSections(metadataFile)
 	
 input_dir = params['background_subt_dir'] if params['background_subtraction'] else params['reg_dir']
 output_dir = params['starfish_dir']
@@ -219,5 +220,5 @@ if not os.path.exists(codebook_path):
 if not os.path.exists(output_dir):
 	os.makedirs(output_dir)
 format_data(input_dir, output_dir, number_of_fovs, codebook_path, rounds = params['n_rounds'], 
-			channels = params['n_fluor_ch'], zplanes = params['n_zplanes'])	
+			channels = params['n_fluor_ch'], zplanes = n_zplanes)	
 
