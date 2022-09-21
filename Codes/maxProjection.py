@@ -50,7 +50,7 @@ def mipFOV(fov, out_mother_dir, round_list, reg_dir, file_regex, channel_dict, m
 
             image_stack = np.dstack(image_list)
             max_array = np.amax(image_stack, axis=2)
-            outname = "MIP_" + re.sub(r"_z\d{2}", "", os.path.basename(imgfiles[0]))
+            outname = re.sub(r"_z\d{2}", "", os.path.basename(imgfiles[0]))
             tifffile.imwrite(os.path.join(out_dir, outname), max_array, imagej=True, photometric = 'minisblack', compression="zlib")
 
 
@@ -91,20 +91,18 @@ n_pool = params['mip_npool']
 
 channelDict = dict((rnd,['ch00', 'ch01', 'ch02', 'ch03']) if rnd not in twoChRnds else (rnd,['ch00', 'ch01']) for rnd in rnd_list)
 
-pat3d = "REG_" + params['filePat3d'].format("FOV")
-print(pat3d)
+pat3d = r"(?P<rndName>\S+)?_(?P<fov>FOV\d+)_(?P<z>z\d+)_(?P<ch>ch\d+)\S*.tif"
 regex_3d = re.compile(pat3d)
 
-partial_align = functools.partial(mipFOV, out_mother_dir=dir_output, round_list=rnd_list, 
+partial_mip = functools.partial(mipFOV, out_mother_dir=dir_output, round_list=rnd_list, 
                                     reg_dir=dir_input, file_regex=regex_3d,
                                     channel_dict=channelDict, method=smooth_method, sigmaOrWidth=sOrW)
 t1 = time()
 
 fov_names = ["FOV" + str(n).zfill(len(str(n_fovs))) for n in range(n_fovs)]
 
-# partial_align(fov_names[0])
 with Pool(n_pool) as P:
-    list(P.map(partial_align, fov_names))
+    list(P.map(partial_mip, fov_names))
 
 t2 = time()
 print('Elapsed time ', t2 - t1)

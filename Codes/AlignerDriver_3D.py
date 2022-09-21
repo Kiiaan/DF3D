@@ -81,8 +81,10 @@ def alignFOV(fov, out_mother_dir, round_list, raw_dir, channel_DIC, cycle_other,
             for ch in channel_dict[mov_rnd]:
                 in_files = getFiles(os.path.join(os.path.abspath(raw_dir), mov_rnd), file_regex, fov, ch)
                 in_bnames = [os.path.basename(f) for f in in_files]
-                out_bnames = [re.sub(r"_s(\d+)_", r"_FOV\1_", ib) for ib in in_bnames]
-                out_bnames = ["REG_" + ob for ob in out_bnames]
+                Zs = [re.findall(r"_(z\d+)_", infile)[0] for infile in in_files]
+                out_bnames = ["{}_FOV{}_{}_{}.tif".format(mov_rnd, fov[1:], z, ch) for z in Zs]
+                # out_bnames = [re.sub(r"_s(\d+)_", r"_FOV\1_", ib) for ib in in_bnames]
+                # out_bnames = ["REG_" + ob for ob in out_bnames]
                 out_files = [os.path.join(out_dir, ob) for ob in out_bnames]
                 aligner.applyTransformation([in_files], [out_files])
 
