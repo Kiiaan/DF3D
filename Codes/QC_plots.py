@@ -84,7 +84,7 @@ else:
 max_int = params['max_intensity'] # normalizing the image to this maximum
 min_int = params['min_intensity']
 
-anchor_pat = "MIP_REG_" + params['anc_rnd'] + "_{fov}_" + params['anc_ch'] + ".tif"
+anchor_pat = params['anc_rnd'] + "_{fov}_" + params['anc_ch'] + ".tif"
 fovs = [file for file in os.listdir(img_dir) if file.startswith('FOV')]
 
 if not os.path.isdir(savingdir):
@@ -97,11 +97,11 @@ spot_df = spot_df.loc[spot_df['gene'] != 'Empty']
 
 # loading background image for whole tissue plots
 if 'nuc' in params['segmentation_type']:
-    nuc_path = os.path.join(params['stitch_dir'], "MIP_REG_{}_{}.tif".format(params['nuc_rnd'], params['nuc_ch']))
+    nuc_path = os.path.join(params['stitch_dir'], "{}_{}.tif".format(params['nuc_rnd'], params['nuc_ch']))
     bgImg = imread(nuc_path)
     
 if 'cyto' in params['segmentation_type']: 
-    cyto_path = os.path.join(params['stitch_dir'], "MIP_REG_{}_{}.tif".format(params['cyto_rnd'], params['cyto_ch']))
+    cyto_path = os.path.join(params['stitch_dir'], "{}_{}.tif".format(params['cyto_rnd'], params['cyto_ch']))
     bgImg = imread(cyto_path)
 
 # the size for the spatial figures
