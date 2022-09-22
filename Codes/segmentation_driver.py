@@ -63,12 +63,12 @@ else:
 
 
 if 'nuc' in segm_type:
-    nuc_path = os.path.join(stitch_dir, "MIP_REG_{}_{}.tif".format(params['nuc_rnd'], params['nuc_ch']))
+    nuc_path = os.path.join(stitch_dir, "{}_{}.tif".format(params['nuc_rnd'], params['nuc_ch']))
     nuc_img = imread(nuc_path)
     bgImg = nuc_img # background image
 
 if 'cyto' in segm_type: 
-    cyto_path = os.path.join(stitch_dir, "MIP_REG_{}_{}.tif".format(params['cyto_rnd'], params['cyto_ch']))
+    cyto_path = os.path.join(stitch_dir, "{}_{}.tif".format(params['cyto_rnd'], params['cyto_ch']))
     cyto_img = imread(cyto_path)
     bgImg = cyto_img # background image
 
