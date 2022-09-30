@@ -97,14 +97,14 @@ def filterByEmptyFraction():
 
     """ 3. Calculating empty rate (er) distribution for training spots and find a threshold"""
     if empFracOrInfer == 'infer':
-        empFrac = threshold_minimum(er_train)
+        empFrac = threshold_minimum(er_train[~y])
     else: 
         empFrac = empFracOrInfer
 
     """ 5 . (part 1) Plotts"""
     # the histogram of local empty rates
     plt.figure()
-    plt.hist(er_train, bins=20)
+    plt.hist(er_train[~y], bins=20)
     plt.vlines(empFrac, *plt.gca().get_ylim(), colors='red', label='threshold')
     plt.xlabel('Local empty rate', fontsize=14)
     plt.legend(prop={'size': 14})
@@ -121,14 +121,14 @@ def filterByEmptyFraction():
     ax[0].set_ylabel("2nd distance", fontsize=12, fontweight='bold')
     ax[0].set_title("Empty spots")
 
-    sc = ax[1].scatter(X[:, 0], X[:, 1], c=er_train, s=0.1)
+    sc = ax[1].scatter(X[~y, 0], X[~y, 1], c=er_train[~y], s=0.1)
     divider = make_axes_locatable(ax[1])
     cax = divider.append_axes('right', size='5%', pad=0.05)
     fig.colorbar(sc, cax=cax)
     ax[1].set_xlabel("1st distance", fontsize=12, fontweight='bold')
     ax[1].set_title("Local empty rate")
 
-    ax[2].scatter(X[:, 0], X[:, 1], c=er_train>empFrac, s=0.1)
+    ax[2].scatter(X[~y, 0], X[~y, 1], c=er_train[~y]>empFrac, s=0.1)
     ax[2].set_title("Passed and rejected spots")
     ax[2].legend(handles = [pass_patch, rjct_patch], prop={'size':14})
     plt.tight_layout()
