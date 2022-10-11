@@ -1,5 +1,20 @@
-# packages in environment at /media/Home_Raid1_Voyager/kian/anaconda3/envs/DF_220412:
-#
+# Installation instructions
+conda env create -f DF220928_env.yml
+
+conda activate DF_220928
+
+cd ~/packages
+
+git clone https://github.com/spacetx/starfish.git
+
+cd starfish
+
+make install-dev
+
+
+
+packages in environment at /media/Home_Raid1_Voyager/kian/anaconda3/envs/DF_220412:
+
 # Name                    Version                   Build  Channel
 _libgcc_mutex             0.1                        main  
 argon2-cffi               20.1.0                   pypi_0    pypi
