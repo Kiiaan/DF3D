@@ -11,6 +11,7 @@ cd starfish
 
 make install-dev
 
+install SimpleElastix from scratch
 
 
 packages in environment at /media/Home_Raid1_Voyager/kian/anaconda3/envs/DF_220412:
