@@ -35,7 +35,7 @@ def getFiles(folder, file_regex, fov, ch):
     return(sorted(selfiles))
 
 
-def alignFOV(fov, out_mother_dir, round_list, raw_dir, channel_DIC, cycle_other, channel_DIC_other, ref_rnd, maxIter, numResolution, file_regex, channel_dict, voxelInfo, AutomaticScale, Scales):
+def alignFOV(fov, out_mother_dir, round_list, raw_dir, channel_DIC, cycle_other, channel_DIC_other, ref_rnd, maxIter, numResolution, file_regex, channel_dict, voxelInfo, AutomaticScale, Scales, transform):
     # print(datetime.now().strftime("%Y-%d-%m_%H:%M:%S: FOV{} started to align".format(fov[1:])))
     logging.info(datetime.now().strftime("%Y-%d-%m_%H:%M:%S: FOV{} started to align".format(fov[1:])))
 
@@ -43,6 +43,7 @@ def alignFOV(fov, out_mother_dir, round_list, raw_dir, channel_DIC, cycle_other,
     fov_fov = "FOV{}".format(fov[1:])
     out_dir = os.path.join(os.path.abspath(out_mother_dir), fov_fov)
     meta_dir = os.path.join(out_dir, "MetaData")
+    raw_dir = os.path.abspath(raw_dir)
 
     Path(out_dir).mkdir(exist_ok=True)
     Path(meta_dir).mkdir(exist_ok=True)
@@ -55,10 +56,10 @@ def alignFOV(fov, out_mother_dir, round_list, raw_dir, channel_DIC, cycle_other,
         
         # find the transform parameters for this (mov_rnd, FOV) pair
         chan_ref = channel_DIC if ref_rnd not in cycle_other else channel_DIC_other[ref_rnd]
-        ref_files = getFiles(os.path.join(os.path.abspath(raw_dir), ref_rnd), file_regex, fov, chan_ref)
+        ref_files = getFiles(os.path.join(raw_dir, ref_rnd), file_regex, fov, chan_ref)
 
         chan_mov = channel_DIC if mov_rnd not in cycle_other else channel_DIC_other[mov_rnd]
-        mov_files = getFiles(os.path.join(os.path.abspath(raw_dir), mov_rnd), file_regex, fov, chan_mov)
+        mov_files = getFiles(os.path.join(raw_dir, mov_rnd), file_regex, fov, chan_mov)
 
         ### move the reference images directory to the output
         # if mov_rnd == ref_rnd:
@@ -72,28 +73,25 @@ def alignFOV(fov, out_mother_dir, round_list, raw_dir, channel_DIC, cycle_other,
         #             shutil.copy2(src=in1, dst=out1)
         #     continue
 
-        aligner = ThreeDimensionalAligner(mov_files, ref_files, transform = "rigid", NumberOfResolutions = numResolution, 
+        aligner = ThreeDimensionalAligner(mov_files, ref_files, transform = transform, NumberOfResolutions = numResolution, 
                                             MaximumNumberOfIterations = maxIter, NumberOfSpatialSamples = int(4000 * len(mov_files) **0.5), 
                                             transParamFile = os.path.join(meta_dir, "{}-to-{}_transformParameters.txt".format(mov_rnd, ref_rnd)),
                                             voxelSize = voxelInfo, AutomaticScale = AutomaticScale, Scales = Scales)
         try:
             aligner.findTransformParameters()
             for ch in channel_dict[mov_rnd]:
-                in_files = getFiles(os.path.join(os.path.abspath(raw_dir), mov_rnd), file_regex, fov, ch)
+                in_files = getFiles(os.path.join(raw_dir, mov_rnd), file_regex, fov, ch)
                 in_bnames = [os.path.basename(f) for f in in_files]
                 Zs = [re.findall(r"_(z\d+)_", infile)[0] for infile in in_files]
                 out_bnames = ["{}_FOV{}_{}_{}.tif".format(mov_rnd, fov[1:], z, ch) for z in Zs]
-                # out_bnames = [re.sub(r"_s(\d+)_", r"_FOV\1_", ib) for ib in in_bnames]
-                # out_bnames = ["REG_" + ob for ob in out_bnames]
                 out_files = [os.path.join(out_dir, ob) for ob in out_bnames]
                 aligner.applyTransformation([in_files], [out_files])
 
                 # move the metadata file to the output directory
-                metaFile = os.listdir(os.path.join(os.path.abspath(raw_dir), mov_rnd, 'MetaData'))
+                metaFile = os.listdir(os.path.join(raw_dir, mov_rnd, 'MetaData'))
                 metaFile = [f for f in metaFile if not re.search("{0}.xml".format(mov_rnd), f) is  None]
-                metaFile = os.path.join(os.path.abspath(raw_dir), mov_rnd, 'MetaData', metaFile[0])
-                # metaFile = os.path.join(os.path.abspath(raw_dir), mov_rnd, 'MetaData', "{0}.xml".format(mov_rnd))
-                # metaFile = [os.path.join(os.path.abspath(raw_dir), mov_rnd, 'MetaData', f) for f in os.listdir()]#"{0}.xml".format(mov_rnd))]
+                metaFile = os.path.join(raw_dir, mov_rnd, 'MetaData', metaFile[0])
+                
                 if os.path.isfile(metaFile):
                     if not os.path.exists(os.path.join("MetaData")):
                         os.mkdir(os.path.join("MetaData"))
@@ -102,13 +100,16 @@ def alignFOV(fov, out_mother_dir, round_list, raw_dir, channel_DIC, cycle_other,
                         dst = os.path.join('MetaData', "{0}.xml".format(mov_rnd)))
                 else:
                     logging.info("MetaData file wasn't found at {}".format(os.path.join(os.path.abspath(raw_dir), mov_rnd, 'MetaData', "{0}.xml".format(mov_rnd))))
-            
-        except Exception as exc:
-            logging.error("Exception raised in FOV{}_round {}".format(fov[1:], mov_rnd))
-            err_logger.error("FOV{}\t{}".format(fov[1:], mov_rnd))
-            print('Exception for FOV{}, {}:'.format(fov[1:], mov_rnd))
-            print(exc)
-
+        
+        except Exception as exc:    
+            if exc.args[0] == "<built-in function ElastixImageFilter_Execute> returned a result with an error set": 
+                err_logger.error("FOV{}\t{}: {}".format(fov[1:], mov_rnd, exc.args))
+                os._exit()
+            else:
+                logging.error("Exception raised in FOV{}_round {}:".format(fov[1:], mov_rnd))
+                err_logger.error("FOV{}\t{}: {}".format(fov[1:], mov_rnd, exc.args))
+                print('Exception for FOV{}, {}:'.format(fov[1:], mov_rnd))
+                print(exc)
 
     os.chdir(init_dir)
     logging.info(datetime.now().strftime("%Y-%d-%m_%H:%M:%S: FOV{} done".format(fov[1:])))
@@ -175,7 +176,7 @@ regex_3d = re.compile(pat3d)
 partial_align = functools.partial(alignFOV, out_mother_dir=dir_output_aligned, round_list=rnd_list, 
                                     raw_dir=dir_data_raw, channel_DIC=channel_DIC, cycle_other=cycle_other, channel_DIC_other=channel_DIC_other, 
                                     ref_rnd=reference_cycle, maxIter=maxIter, numResolution=numResolution, file_regex=regex_3d,
-                                    channel_dict=channelDict, voxelInfo=voxelSpacing, AutomaticScale = autoScale, Scales=param_scales)
+                                    channel_dict=channelDict, voxelInfo=voxelSpacing, AutomaticScale = autoScale, Scales=param_scales, transform=transform)
 # partial_align = functools.partial(alignFOV, out_mother_dir=dir_output_aligned, round_list=['dc2', 'dc3'], 
 #                                     raw_dir=dir_data_raw, channel_DIC=channel_DIC, cycle_other=cycle_other, channel_DIC_other=channel_DIC_other, 
 #                                     ref_rnd=reference_cycle, maxIter=maxIter, numResolution=numResolution, file_regex=regex_3d,
