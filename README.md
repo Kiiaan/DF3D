@@ -11,11 +11,26 @@ cd starfish
 
 make install-dev
 
+install SimpleElastix from scratch:
 
+cd ~/packages
+git clone https://github.com/SuperElastix/SimpleElastix
 
-packages in environment at /media/Home_Raid1_Voyager/kian/anaconda3/envs/DF_220412:
+mkdir SE_build
 
-# Name                    Version                   Build  Channel
+cd SE_build
+
+cmake ../SimpleElastix/SuperBuild
+
+make -j8
+
+cd ~/packages/SE_build/SimpleITK-build/Wrapping/Python/
+
+python Packaging/setup.py install --user
+
+#packages in environment at /media/Home_Raid1_Voyager/kian/anaconda3/envs/DF_220412:
+
+-# Name                    Version                   Build  Channel
 _libgcc_mutex             0.1                        main  
 argon2-cffi               20.1.0                   pypi_0    pypi
 async-generator           1.10                     pypi_0    pypi
