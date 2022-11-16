@@ -1,0 +1,11 @@
+name: DF_221115
+channels:
+  - defaults
+dependencies:
+  - python=3.8.5
+  - pip
+  - scipy
+  - openjdk=8
+  - conda-forge::pyimagej
+  - pip:
+    - cellpose=2.1.1
