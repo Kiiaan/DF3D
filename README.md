@@ -1,15 +1,7 @@
 # Installation instructions
-conda env create -f DF220928_env.yml
+conda env create -f DF221115_env.yml
 
-conda activate DF_220928
-
-cd ~/packages
-
-git clone https://github.com/spacetx/starfish.git
-
-cd starfish
-
-make install-dev
+conda activate DF_221115
 
 install SimpleElastix from scratch:
 
