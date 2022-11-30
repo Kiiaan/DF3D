@@ -3,7 +3,7 @@ using the command line headless interface of ImageJ2"""
 
 import os, stat, re
 from datetime import datetime
-import requests as rq
+# import requests as rq
 from zipfile import ZipFile
 import subprocess as sp
 import errno
@@ -179,30 +179,30 @@ class IJ_Stitch:
         im = imread(os.path.join(output_dir, new_name))
         tifffile.imwrite(os.path.join(output_dir, new_name), im, imagej=True, photometric = 'minisblack', compression="zlib")
 
-    @staticmethod
-    def getImageJ(pathOrFile):
-        """ Downloads FIJI. If given a directory, will save a FIJI there. 
-        If given a file, will save FIJI in the directory of that file"""
-        if os.path.isdir(pathOrFile):
-            savingDir = pathOrFile
-        elif os.path.isdir(os.path.dirname(pathOrFile)):
-            savingDir = os.path.dirname(pathOrFile)
-        else:
-            raise FileNotFoundError('Invalid directory or file for ImageJ: \n {}'.format(pathOrFile))
+    # @staticmethod
+    # def getImageJ(pathOrFile):
+    #     """ Downloads FIJI. If given a directory, will save a FIJI there. 
+    #     If given a file, will save FIJI in the directory of that file"""
+    #     if os.path.isdir(pathOrFile):
+    #         savingDir = pathOrFile
+    #     elif os.path.isdir(os.path.dirname(pathOrFile)):
+    #         savingDir = os.path.dirname(pathOrFile)
+    #     else:
+    #         raise FileNotFoundError('Invalid directory or file for ImageJ: \n {}'.format(pathOrFile))
             
-        # downloading FIJI
-        ijfile = rq.get('https://downloads.imagej.net/fiji/archive/20200928-2004/fiji-linux64.zip')
-        with open(os.path.join(savingDir, 'fiji-linux64.zip'), 'wb') as writer:
-            writer.write(ijfile.content)
+    #     # downloading FIJI
+    #     ijfile = rq.get('https://downloads.imagej.net/fiji/archive/20200928-2004/fiji-linux64.zip')
+    #     with open(os.path.join(savingDir, 'fiji-linux64.zip'), 'wb') as writer:
+    #         writer.write(ijfile.content)
 
-        # unzipping FIJI
-        with ZipFile(os.path.join(savingDir, 'fiji-linux64.zip'), 'r') as unzipper: 
-            unzipper.extractall(savingDir)
+    #     # unzipping FIJI
+    #     with ZipFile(os.path.join(savingDir, 'fiji-linux64.zip'), 'r') as unzipper: 
+    #         unzipper.extractall(savingDir)
         
-        imagej_path = os.path.join(savingDir, 'Fiji.app', 'ImageJ-linux64')
+    #     imagej_path = os.path.join(savingDir, 'Fiji.app', 'ImageJ-linux64')
         
-        # changing the permission
-        st = os.stat(imagej_path)
-        os.chmod(imagej_path, st.st_mode | stat.S_IEXEC)
+    #     # changing the permission
+    #     st = os.stat(imagej_path)
+    #     os.chmod(imagej_path, st.st_mode | stat.S_IEXEC)
         
-        return imagej_path
+    #     return imagej_path

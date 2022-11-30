@@ -1,11 +1,16 @@
 # Installation instructions
-conda env create -f DF221115_env.yml
+conda env create -f DF221115_env.yaml
 
 conda activate DF_221115
 
 install SimpleElastix from scratch:
 
 cd ~/packages
+
+mkdir SimpleElastix_221115
+
+cd SimpleElastix_221115/
+
 git clone https://github.com/SuperElastix/SimpleElastix
 
 mkdir SE_build
@@ -16,7 +21,7 @@ cmake ../SimpleElastix/SuperBuild
 
 make -j8
 
-cd ~/packages/SE_build/SimpleITK-build/Wrapping/Python/
+cd SimpleITK-build/Wrapping/Python/
 
 python Packaging/setup.py install --user
 

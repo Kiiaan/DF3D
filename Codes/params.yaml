@@ -1,7 +1,7 @@
 ---
  ######## Registration paramteres ########
  # where the microscope 3D data is stored
- dir_data_raw: "/media/NAS2/Users/Kian_NAS2/DART_FISH/Raw/220301_DigestionTest/K2100233_2-3/"
+ dir_data_raw: "/media/NAS4/Chien-Ju/BICCN_DART-FISH/20220331/0_Raw/"
 
  # where the maximum projected data is stored
  proj_dir: "../2_Projected/"
@@ -10,13 +10,13 @@
  reg_dir: "../1_Registered/"
 
  # list of all rounds to be registered
- reg_rounds: ["0_anchor", "1_dc0", "2_dc1", "3_dc2", "4_dc3", "5_dc4", "6_dc5", "7_dc6", "8_DRAQ5"]
+ reg_rounds: ["anchor", "dc0", "dc1", "dc2", "dc3", "dc4", "dc5", "dc6", "dc7", "draq5"]
 
  # reference cycle for registration 
- ref_reg_cycle: "4_dc3" 
+ ref_reg_cycle: "dc5" 
 
  # where the microscope metadata is. Set to null if metadata is here: dir_data_raw/ref_reg_cycle/MetaData/ref_reg_cycle.xml
- metadata_file: null
+ metadata_file: "/media/NAS4/Chien-Ju/BICCN_DART-FISH/20220331/0_Raw/dc5/MetaData/20220331_dc5.xml"
 
  # number of iterations for registration
  reg_maxIter: 250
@@ -34,10 +34,10 @@
  params_scales: ['20000'] # None
 
  # pre-mipping smoothing method. Either "gaussian" or "median"
- smooth_method: "gaussian" # median
+ smooth_method: median
 
  # sigma if smooth_method=="gaussian", window size if smooth_method=="median"
- smooth_degree: 0.5 # 3
+ smooth_degree: 2
 
  # channel for registration on all cycles except those specified in `cycle_other`
  ref_reg_ch: "ch01" # DIC channel for reference cycle
@@ -55,10 +55,10 @@
  skip_mip: false
 
  # two channel rounds: list of rounds that only have ch00 and ch01
- twoChannelRounds: ["8_DRAQ5"]
+ twoChannelRounds: ["draq5"]
 
- # the regex for the file names of the 3d files. The brackets are used to replace with "s" or "FOV" for fov indicators
- filePat3d: "(?P<rndName>\\S+)?_(?P<fov>{}\\d+)_(?P<z>z\\d+)_(?P<ch>ch\\d+)\\S*.tif$" # 0: all, 1: rnd, 2:fov, 3: z, 4: ch
+ # the regex for the file names of the raw files
+ filePat3d: "20220331_(?P<rndName>\\S+)?_(?P<fov>s\\d+)_(?P<z>z\\d+)_(?P<ch>ch\\d+)\\S*.tif$" # 0: all, 1: rnd, 2:fov, 3: z, 4: ch
 
  
 
@@ -77,13 +77,12 @@
 
 
 
-
  ######## Stitching paramteres ########
  # where stitching results are saved 
  stitch_dir: "../2_Projected/stitched/"
 
  # rounds to be stitched. Has to be compatible with `reg_rounds`
- stch_rounds: ["0_anchor", "1_dc0", "2_dc1", "3_dc2", "4_dc3", "5_dc4", "6_dc5", "7_dc6", "8_DRAQ5"]
+ stch_rounds: ["anchor", "dc0", "dc1", "dc2", "dc3", "dc4", "dc5", "dc6", "dc7", "draq5"]
 
  # the round to be used as the reference for stitching. if null, uses `ref_reg_cycle`
  stitchRefCycle: null # or "5_dc3"
@@ -95,60 +94,56 @@
  ij_path: "/media/Home_Raid1_Voyager/kian/Codes/DART-FISH/image_stitching/Fiji.app/ImageJ-linux64"
 
  # the regex pattern with the file names
- stchFilePattern: "(?P<intro>MIP_REG)_(?P<rndName>\\d+_\\S+)?_(?P<fov>FOV\\d+)_(?P<ch>ch\\d+)\\S*.tif$" # 0: all, 1: MIP_rnd#, 2:dc/DRAQ, 3: FOV, 4: ch
+ stchFilePattern: "REG_20220331_(?P<rndName>\\S+)?_(?P<fov>FOV\\d+)_(?P<ch>ch\\d+)\\S*.tif$" # 0: all, 1:dc/DRAQ, 2: FOV, 3: ch
  
  # the regex pattern for fov names
  fov_pat: "FOV(\\d+)" # pattern to extract the fov# 
 
  # the background image for the fov map: [round, channel]
- fovMap_bg : ["0_anchor_redo", "ch03"]
-
-
-
-
- ######## Starfish format paramteres ########
- # rounds for decoding. The order has to match the codebook
- dc_rounds: ["1_dc0", "2_dc1", "3_dc2", "4_dc3", "5_dc4", "6_dc5", "7_dc6"]
-
- # the nuclear stain round
- stain_round: "8_DRAQ5"
-
- # directory for starfish data
- starfish_dir: "../3_Decoded/data_Starfish"
-
- # path to codebook
- codebook_path: "_codebook/HLK2021_kidney_codebook.json"
-
- # number of decoding rounds
- n_rounds: 7
-
- # number of fluorescent channels
- n_fluor_ch: 3
-
- # number of z-planes for decoding. if null, then metadata_file is used to find #sections
- n_zplanes: null #21
+ fovMap_bg : ["anchor", "ch03"]
 
 
 
 
  ######## Decoding paramteres ########
  # where decoding results will be stored + prefix
- dc_out: "../3_Decoded/output_Starfish"
+ dc_out: "../3_Decoded/"
 
- # barcode magnitude to use
- bcmag: 0.4
+ # path to codebook
+ codebook_path: "_codebook/cj484+24empty.txt"
 
- # binarize in Starfish decoding 
- dc_binarize: false
+ # rounds for decoding. The order has to match the codebook
+ dc_rounds: ["dc0", "dc1", "dc2", "dc3", "dc4", "dc5", "dc6", "dc7"]
 
- # intensities are scaled such that values higher than this are set to 255. Set to null for no normalization
- max_intensity: 250
+ # the suffix to be appended to the end of all output files
+ dc_suff: ""
+ 
+ # the mapping between codes, i.e. [1, 2, 3] to channels
+ channel_order: ['ch02', 'ch00', 'ch03']
+
+ # minimum (l2) norm for pixel intensities to be decoded
+ min_dc_norm: 0.3 
+
+ # lasso regularization parameter
+ lasso_reg_value: 0.02 
+
+ # the hard threshold on the deconvoled weights from the OLS model
+ deconv_weight_threshold: 0.1 
+
+ # number of iterations for channel coefficient estimation. 0 to skip 
+ chan_coef_niter: 3 
+
+ # if list, name of fovs to use for channel coef estimation. If int, number of fovs to sample
+ chan_coef_fovs: 5
+
+ # fraction of pixels to sample from each fov to estimate channel coefficients
+ chan_coef_frac: 0.015
+
+ # intensities are scaled such that values higher than this are set to 255.
+ max_intensity: 255
 
  # intensities below this value are set to 0
  min_intensity: 1
-
- # valid area range for rolonies
- rolony_area: [2, 100]
 
  # number of pools for decoding
  dc_npool: 8
@@ -157,16 +152,16 @@
 
  ######## Combining FOV's paramteres ########
  # maximum fraction of empty barcodes in a spot's neighborhood. Use "infer" for automatic finding of the value
- emptyFractionThresh: "infer" # 0.2
+ emptyRateThr: 0.02 # "infer" 
 
  # radius in pixels for removing rolonies in overlapping boundaries
  overlapRemovalRadius: 4.5
 
  # No. nearest neighbors for calculating local empty rate in the space of 1st and 2nd distance to barcode
- distance_nn_K: 100
+ distance_nn_K: 500
 
  # fraction of spots per field of view to be used for the distance nearest neighbor model
- distance_nn_frac: 0.1
+ distance_nn_frac: 0.2
  
 
  ######## Segmentation paramteres ########
@@ -174,21 +169,21 @@
  seg_dir: "../4_CellAssignment"
 
  # name of the model to use. String (for built-in models) or full path to the model (e.g., custom model)
- pretrained_model: "/media/Home_Raid1_Voyager/kian/.cellpose/custom_models/CP_20220415_102241" #"nuclei" # "cyto" # "CP"
+ pretrained_model: "nuclei" # "cyto" # "CP"
 
  # segmentation type for Cellpose. Options: 
  #  1) "nuc": only nuclei, 2) "cyto": only cytoplasm, 
  #  3) "nuc+cyto": cytoplasm segmentation with aid from nuclear stain
- segmentation_type: "nuc+cyto"
+ segmentation_type: "nuc"
 
  # the round name that contains nuclear stain. Doesn't matter if segmentation_type == 'cyto'
- nuc_rnd : "8_DRAQ5" 
+ nuc_rnd : "draq5" 
 
  # channel for nuclear stain in `nuc_rnd`. Doesn't matter if segmentation_type == 'cyto'
  nuc_ch: "ch00"
 
  # the round name that contains cytoplasmic stain. Doesn't matter if segmentation_type == 'nuc'
- cyto_rnd : "0_anchor"
+ cyto_rnd : "10_anchor_redo"
 
  # channel for cyto stain in `cyto_rnd`. Doesn't matter if segmentation_type == 'nuc'
  cyto_ch: "ch03"
@@ -197,10 +192,10 @@
  flow_threshold: 0.8 # 0.4
 
  # average diameter of cells (for "cyto" and "nuc+cyto") or nuclei (for "nuc") in pixels
- seg_diam: 23
+ seg_diam: 30
 
  # suffix for generated files. Could be "".
- seg_suf: "_custom"
+ seg_suf: "_nuc"
  
  # whether to skip the segmentation. For troubleshooting
  skip_seg: false
@@ -210,6 +205,7 @@
 
  # maximum acceptable distance of rolonies to their closest cell in pixels
  max_rol2nuc_dist: 150
+
 
 
  ######## QC paramteres ########
