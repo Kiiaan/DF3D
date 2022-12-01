@@ -268,7 +268,7 @@ for i in range(coefs_df.shape[1]):
     x = np.arange(0, coefs_df.shape[0]) + (i-coefs_df.shape[1]//2)/(coefs_df.shape[1]+1)
     plt.scatter(x, coefs_df.iloc[:, i], label='iter {}'.format(i), alpha=0.8)
 plt.legend()
-plt.xticks(np.arange(0, 24, 1), np.arange(0, 24, 1))
+plt.xticks(np.arange(0, coefs_df.shape[0], 1), np.arange(0, coefs_df.shape[0], 1))
 plt.xlabel('cycle-channel', fontsize=15)
 plt.ylabel('coefficient', fontsize=15)
 plt.title('Cycle-channel coefficients', fontsize=15, fontweight='bold')
