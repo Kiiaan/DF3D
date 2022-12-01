@@ -57,27 +57,15 @@ if commandOut.returncode:
     print("Error in stitching.")
     sys.exit(1)
 
-""" to StarFish format"""
-tosff_shell = [sys.executable, "toStarfishFormat.py", param_file]
-print(tosff_shell)
-commandOut = sp.run(tosff_shell, stderr = sp.PIPE, text = True)
-
-print(commandOut.stderr)
-
-if commandOut.returncode:
-    print("Error in toStarfishFormat.")
-    sys.exit(1)
 
 """ Run Starfish decoding"""
-dc_shell = [sys.executable, "starfishDARTFISHpipeline.py", param_file]
+dc_shell = [sys.executable, "decoding_driver.py", param_file]
 print(dc_shell)
 commandOut = sp.run(dc_shell, stderr = sp.PIPE, text = True)
 
-
-# print(commandOut.stderr)
-
+print(commandOut.stderr)
 if commandOut.returncode:
-    print("Error in Starfish decoding.")
+    print("Error in sparse decoding.")
     sys.exit(1)
 
 """ Combinding FOVs"""

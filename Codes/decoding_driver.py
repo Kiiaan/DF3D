@@ -281,7 +281,7 @@ def dc_fov(name, indir, regex, rounds, chans, codebook, min_norm, alpha, chanCoe
     fov = FOV(name, os.path.join(indir, name), regex, rounds, chans, 
               normalize_max=normalize_ceiling, min_cutoff=min_intensity, imgfilter=smooth_method, smooth_param=sOrW) 
     dcObj = normAndDeconv(fov.mip(), codebook=codebook, min_norm=min_norm, 
-                          alpha=alpha, chanCoefs=chanCoefs) # [:, :, 0:100, 0:100]
+                          alpha=alpha, chanCoefs=chanCoefs)
     fov_spots = dcObj.createSpotTable(dcObj.ols_table, thresh_abs=wthresh, 
                                       flat_filter=None)
     fov_spots.to_csv(os.path.join(outdir, "{}_rawSpots{}.tsv".format(name, suffix)), sep="\t", float_format='%.3f')
@@ -292,7 +292,7 @@ dcpartial = partial(dc_fov, indir=deepcopy(in_dir), regex=deepcopy(regex_3d), ro
                     alpha=deepcopy(lasso_alpha), chanCoefs=deepcopy(coefs_df.values[:, -1]),
                     wthresh=deepcopy(weight_thresh), outdir=deepcopy(out_dir))
 t1 = time.time()
-Parallel(n_jobs=dc_npool, prefer='processes')(delayed(dcpartial)(name) for name in fov_names[:6])
+Parallel(n_jobs=dc_npool, prefer='processes')(delayed(dcpartial)(name) for name in fov_names)
 t2 = time.time()
 print("It took {} seconds".format(t2 - t1))
 
