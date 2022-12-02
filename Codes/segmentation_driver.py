@@ -79,9 +79,8 @@ if not path.exists(saving_path):
 
 suff = params['seg_suf']
 
-bcmag = "bcmag{}".format(params['bcmag'])
     
-spot_file = os.path.join(params['dc_out'] + '_' + bcmag, 'all_spots_filtered.tsv')
+spot_file = os.path.join(params['dc_out'], 'all_spots_filtered.tsv')
 
 # segmenting the nuclear image
 if params['skip_seg']:
