@@ -4,7 +4,7 @@ channels:
 dependencies:
   - python=3.8.10
   - pip
-  - scipy=1.7.1
+  - scipy
   - scikit-image=0.19.3
   - scikit-learn=1.1.3
   - openjdk=8
