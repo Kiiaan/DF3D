@@ -1,32 +1,36 @@
-# Installation instructions
+Overall procedure:
+1. Install a conda environment using the provided `.yaml` file
+2. Build and install SimpleElastix
+3. (Uncertain) Resolve errors regarding `GLIBCXX_3.4.26`
+# Installation the conda env
+```
 conda env create -f DF221115_env.yaml
-
 conda activate DF_221115
-
-install SimpleElastix from scratch:
-
+```
+# Install SimpleElastix from scratch:
+```
 cd ~/packages
-
 mkdir SimpleElastix_221115
-
 cd SimpleElastix_221115/
-
 git clone https://github.com/SuperElastix/SimpleElastix
-
 mkdir SE_build
-
 cd SE_build
-
 cmake ../SimpleElastix/SuperBuild
-
 make -j8
-
 cd SimpleITK-build/Wrapping/Python/
-
 python Packaging/setup.py install --user
+```
+# Error with `GLIBCXX_3.4.26`
+I received such error with this environment's settings when running the segmentation_driver.py:
+```
+ImportError: /usr/lib/x86_64-linux-gnu/libstdc++.so.6: version `GLIBCXX_3.4.26' not found (required by /media/Home_Raid1_Voyager/kian/anaconda3/envs/DF_221115/lib/python3.8/site-packages/scipy/linalg/_matfuncs_sqrtm_triu.cpython-38-x86_64-linux-gnu.so)
+```
+I couldn't figure out why this is happening but [this StackOverflow thread](https://stackoverflow.com/questions/54948216/usr-lib-x86-64-linux-gnu-libstdc-so-6-version-glibcxx-3-4-21-not-found-req) seems to have solutions for it. What I tried and worked is this:
+1. Add this to the `~/.bashrc` file: `export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:~/anaconda3/envs/DF_221115/lib`
+2. Run `source ~/.bashrc`
 
 #packages in environment at /media/Home_Raid1_Voyager/kian/anaconda3/envs/DF_220412:
-
+```
 -# Name                    Version                   Build  Channel
 _libgcc_mutex             0.1                        main  
 argon2-cffi               20.1.0                   pypi_0    pypi
@@ -200,3 +204,4 @@ xz                        5.2.5                h7b6447c_0
 zipp                      3.3.0                    pypi_0    pypi
 zlib                      1.2.11               h7b6447c_3  
 zstd                      1.4.5                h9ceee32_0  
+```
