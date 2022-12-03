@@ -188,7 +188,8 @@ for i, fov in enumerate(fovs):
 spot_df = pd.read_csv(spot_addr, sep = "\t", index_col = 0)
 spot_df = spot_df.loc[spot_df['gene'] != 'Empty']
 gene_counts = spot_df.groupby('gene').size().sort_values(ascending = False)
-
+print(spot_addr)
+print(spot_df.head())
 destdir = os.path.join(savingdir, "GenePlots")
 if not os.path.isdir(destdir):
     os.makedirs(destdir)

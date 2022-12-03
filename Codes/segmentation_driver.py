@@ -110,9 +110,8 @@ labels, dists = assigner.getResults()
 spot_df['cell_label'] = labels
 spot_df['dist2cell'] = np.round(dists, 2)
 spot_df = spot_df.sort_values('cell_label', ignore_index = True)
-spot_df.to_csv(path.join(saving_path, 'spots_assigned{}.tsv'.format(suff)), sep = '\t', index = False, float_format='%.3f')
+spot_df.to_csv(path.join(saving_path, 'spots_assigned{}.tsv'.format(suff)), sep = '\t', float_format='%.3f')
 
-print("end of segmentation driver")
 
 # finding the cells cell information: centroid and area
 cellInfos = mask2centroid(mask, ncore = params['centroid_npool'])

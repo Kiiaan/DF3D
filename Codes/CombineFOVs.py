@@ -29,7 +29,7 @@ def removeOverlapRolonies(rolonyDf, fov_map, x_col = 'x', y_col = 'y', removeRad
         print("{}. Working on gene {}".format(i, g))
         reducedRolonies.append(removePerGene(g))
 
-    return pd.concat(reducedRolonies)
+    return pd.concat(reducedRolonies, ignore_index=True)
 
 def removeOverlapRolonies_gene(gene, rolonyDf, fov_map, x_col = 'x', y_col = 'y', removeRadius = 5.5):
 # def removeOverlapRolonies_gene(thisGene_rolonies, fov_map, x_col = 'x', y_col = 'y', removeRadius = 5.5):
@@ -205,6 +205,8 @@ decoding_dir = params['dc_out'] # the main directory for decoding
 
 FOVcoords = os.path.join(params['stitch_dir'], "registration_reference_coordinates.csv")
 FOVcoords = pd.read_csv(FOVcoords).set_index('fov')
+FOVcoords['x'] = FOVcoords['x'] - FOVcoords['x'].min() # making sure no pixels are in negative coordiates
+FOVcoords['y'] = FOVcoords['y'] - FOVcoords['y'].min() # making sure no pixels are in negative coordiates
 FOVmap = findFOVmap(FOVcoords) # dictionary to show the nearest tiles to each FOV
 
 nn_sample_frac = params['distance_nn_frac'] # fraction of spots per FOV to use for training the nearest neighbor model
