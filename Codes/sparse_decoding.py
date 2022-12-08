@@ -63,34 +63,6 @@ class Decoder2D():
         if self.verbose:
             print("Done fitting lasso")
 
-    # def applyOLS(self):
-    #     if self.lasso_table is None:
-    #         self.ols_table = None
-    #         return
-    #     if self.lasso_table.values.max(axis=0).sum() == 0: # no pixels having weights
-    #         self.ols_table = deepcopy(self.lasso_table)
-    #         return
-        
-    #     ols = LinearRegression(fit_intercept=False) # positive=True
-    #     cb_flat = self.cb.stack(flatcode = (RND, CHN)) # flatten codebook  
-    #     lasso_nonzero = deepcopy(self.lasso_table).where(self.lasso_table.max(axis=0) > 0, drop=True) # removing pixels with 0 weight
-    #     # train_pixs = self.lasso_pixs[(lasso_table.max(axis=0).values > 0)] # removing pixels with 0 weight
-    #     # lasso_table = lasso_table.where(lasso_table.max(axis=0) > 0, drop=True) # removing pixels with 0 weight
-
-    #     # w_ols = deepcopy(self.lasso_table)
-    #     w_ols = self.lasso_table.where(self.lasso_table.max(axis=0) > 0, other=self.kneeFilter(lasso_nonzero).values).values
-    #     del lasso_nonzero
-    #     # w_ols = self.kneeFilter(lasso_table).values # select barcodes with lasso. weight will be updated with ols weights
-    #     # w_ols = self.kneeFilter(deepcopy(self.lasso_table)).values # select barcodes with lasso. weight will be updated with ols weights
-    #     for j in range(w_ols.shape[1]): # iterate over every pixel 
-    #         selinds = np.nonzero(w_ols[:, j])[0] # non-zero weight indices (after filtering)
-    #         if selinds.shape[0] == 0:
-    #             continue
-    #         selbc = cb_flat[selinds] # the barcodes with non-zero weights
-    #         wj = self.myfit(self.lasso_pixs[j], selbc, ols) # the ols fit
-    #         w_ols[selinds, j] = wj # replacing the lasso weights with ols weights
-    #     self.ols_table = xr.DataArray(w_ols, dims = self.lasso_table.dims,
-    #                                   coords = self.lasso_table.coords)
     def applyOLS(self):
         if self.lasso_table is None:
             self.ols_table = None
@@ -105,7 +77,6 @@ class Decoder2D():
         self.ols_pixs = self.lasso_pixs[(w_table.max(axis=0).values > 0)] # removing pixels with 0 weight
         w_table = w_table.where(w_table.max(axis=0) > 0, drop=True) # removing pixels with 0 weight
         w_numpy = self.kneeFilter(w_table).values # select barcodes with lasso. weight will be updated with ols weights
-        # w_ols = self.kneeFilter(deepcopy(self.lasso_table)).values # select barcodes with lasso. weight will be updated with ols weights
         for j in range(w_table.shape[1]): # iterate over every pixel 
             selinds = np.nonzero(w_numpy[:, j])[0] # non-zero weight indices (after filtering)
             if selinds.shape[0] == 0:
@@ -219,7 +190,43 @@ class Decoder2D():
         return weights.where(weights >= w_ntop[None], 0) #where the filtering happens
     
     @staticmethod
-    def kneeFilter(wtable, n=2, diff_thr = [0.5, 0.4], returnThresh=False):
+    def kneeFilter(wtable, n=2, abs_thr = [0.1, 0.1], returnThresh=False):
+        """Keeps the top `n` weights if they are dominant. Procedure:
+            For every pixel in w_table (row), sorts the weights in descending order and normalizes them to 
+            have max of 1, finds the index at which there is a large dip in weights. If the dip happens in 
+            the first `n` indices, the weights before the dip are kept, otherwise all weights are set to 0.
+            Variables:
+            w_table: DataArray with barcodes in rows, pixels in columns, populated by weights
+            n: upper bound on where the dip in weights occurs
+            abs_thr: a list of length n, or a float. A dip is called at position i if the normalize weight at 
+                        position i+1 is smaller than abs_thr[i]
+        """
+        if type(abs_thr) is not list:
+            abs_thr = n * [abs_thr]
+        elif len(abs_thr) != n:
+            raise ValueError('n and length of abs_thr not equal')
+    
+        warr = wtable.values
+
+        warr_sort = np.array([col[np.argsort(-col)] for col in warr.T]).T # sorted weights descending order
+        warr_norm = warr_sort / warr_sort.max(axis=0) # normalized to have max weight of 1
+
+        w_thr = np.zeros(wtable.shape[1]) # vector to hold threshold values for pixels
+        w_thr[:] = np.inf # anything that's not set below will never pass threshold
+
+        for i in range(n): # iterate over the first n positions
+            w_thr[warr_norm[i+1, :] <= abs_thr[i]] = warr_sort[i, warr_norm[i+1, :] <= abs_thr[i]] # update threshold values if dips are identified
+       
+        
+        out = wtable.where(wtable >= w_thr, other=0)
+
+        if returnThresh: 
+            return out, w_thr
+        else: 
+            return out
+
+    @staticmethod
+    def kneeFilter_old(wtable, n=2, diff_thr = [0.5, 0.4], returnThresh=False):
         """Keeps the top `n` weights if they are dominant. Procedure:
             For every pixel in w_table (row), sorts the weights in descending order and normalizes them to 
             have max of 1, finds the index at which there is a large dip in weights. If the dip happens in 
