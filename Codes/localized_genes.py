@@ -127,8 +127,7 @@ import numpy as np, pandas as pd
 from skimage.io import imread, imshow
 from scipy.spatial import cKDTree
 
-bcmag = "0.6"
-spot_df = pd.read_csv("../3_Decoded/output_Starfish_bcmag{}/all_spots_filtered.tsv".format(bcmag), 
+spot_df = pd.read_csv("../3_Decoded/all_spots_filtered.tsv", 
                       sep = '\t', index_col=0)
 spot_df = spot_df.loc[spot_df['gene'] != 'Empty']
 
@@ -138,7 +137,7 @@ def nnSpotFinder(allspots, gene, n_neighbors=5):
     spot_g = allspots.loc[allspots['gene'] == gene]
     spot_nn_g = cKDTree(spot_g[['xg', 'yg']])
     nearestDists, nearestInds = spot_nn_g.query(spot_g[['xg', 'yg']], k = range(2, 2 + n_neighbors))
-    return nearestDists, spot_g.index[nearestInds]
+    return nearestDists, spot_g.index.to_numpy()[nearestInds]
 
 n_neigh = 20
 
@@ -163,8 +162,8 @@ dist_stats = means_df.join(std_df)
 stats_norm = dist_stats.loc[:, dist_stats.columns.str.startswith('mean')].multiply(np.sqrt(DF1.getGeneCounts()[dist_stats.index]), axis=0)
 
 stats_norm = stats_norm.sort_values(by='mean_k3')
-stat_plot = stats_norm.head(200)
-fig, ax = plt.subplots(figsize = [20, 6], nrows=1)
+stat_plot = stats_norm.head(300)
+fig, ax = plt.subplots(figsize = [25, 6], nrows=1)
 ax.bar(stat_plot.index, stat_plot['mean_k3'])
 ax.tick_params(axis='x', labelrotation = 90, labelsize = 7)
 plt.tight_layout()
