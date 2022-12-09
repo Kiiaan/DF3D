@@ -14,14 +14,14 @@ from joblib import Parallel, delayed
 from datetime import datetime
 from fieldOfView import FOV
         
-def deconv(int_xarr, codebook, size=None, min_norm=0.3, alpha=0.02):
+def deconv(int_xarr, codebook, size=None, min_norm=0.3, alpha=0.02, knee_thrs=(0.1, 0.1)):
     dcObj_ = spd.Decoder2D(int_xarr, codebook, alpha=alpha, size=size)
     dcObj_.prepTrainingPixels(min_norm=min_norm)
     dcObj_.applyLasso()
-    dcObj_.applyOLS()
+    dcObj_.applyOLS(knee_thrs=knee_thrs)
     return dcObj_
 
-def normAndDeconv(int_xarr, codebook, min_norm=0.3, alpha=0.02, chanCoefs=None, size=None):
+def normAndDeconv(int_xarr, codebook, min_norm=0.3, alpha=0.02, knee_thrs=(0.2, 0.1), chanCoefs=None, size=None):
     """ Normalize intensities by chanCoefs, then decode
         int_xarr: Intensity data array, either with dims (RNDCH, spatial) or (RND, CHN, y, x)
         chanCoefs: a numpy vector. If None, then will be set to a vector of ones
@@ -38,7 +38,7 @@ def normAndDeconv(int_xarr, codebook, min_norm=0.3, alpha=0.02, chanCoefs=None, 
         chanCoefs = np.array(chanCoefs).reshape((1, -1))
 
     intensities = int_xarr / chanCoefs # normalize
-    dcObj = deconv(intensities, codebook, min_norm=min_norm, alpha=alpha, size=size)
+    dcObj = deconv(intensities, codebook, min_norm=min_norm, alpha=alpha, size=size, knee_thrs=knee_thrs)
     return dcObj    
 
 def estimateChannelCoefs(int_arr, codebook, min_norm=0.3, alpha=0.02, n_iter=3):
@@ -121,6 +121,7 @@ cb = spd.Codebook.readFromFile(cb_file)
 min_dc_norm = params['min_dc_norm'] # minimum pixel norm for decoding
 lasso_alpha = params['lasso_reg_value'] # the regularization value for the lasso model
 weight_thresh = params['deconv_weight_threshold'] # the hard threshold on the deconvoled weights from the OLS model
+knee_thresholds = params['knee_threshold'] # knee detection thresholds (1 passes everything, 0 passes nothing)
 
 chanCoef_fovs = params['chan_coef_fovs'] # if list, name of fovs to use for channel coef estimation. If int, number of fovs to sample
 chanCoef_frac = params['chan_coef_frac'] # fraction of pixels to sample from each fov to estimate channel coefficients
@@ -167,11 +168,11 @@ plt.savefig(chanCoef_plot, transparent=False, facecolor='white')
 
 
 """ Run the decoding on all field of views"""
-def dc_fov(name, indir, regex, rounds, chans, codebook, min_norm, alpha, chanCoefs, wthresh, outdir):
+def dc_fov(name, indir, regex, rounds, chans, codebook, min_norm, alpha, knee_thrs, chanCoefs, wthresh, outdir):
     fov = FOV(name, os.path.join(indir, name), regex, rounds, chans, 
               normalize_max=normalize_ceiling, min_cutoff=min_intensity, imgfilter=smooth_method, smooth_param=sOrW) 
     dcObj = normAndDeconv(fov.mip(), codebook=codebook, min_norm=min_norm, 
-                          alpha=alpha, chanCoefs=chanCoefs)
+                          alpha=alpha, chanCoefs=chanCoefs, knee_thrs=knee_thrs)
     fov_spots = dcObj.createSpotTable(dcObj.ols_table, thresh_abs=wthresh, 
                                       flat_filter=None)
     fov_spots.to_csv(os.path.join(outdir, "{}_rawSpots{}.tsv".format(name, suffix)), sep="\t", float_format='%.3f')
@@ -180,7 +181,8 @@ def dc_fov(name, indir, regex, rounds, chans, codebook, min_norm, alpha, chanCoe
 dcpartial = partial(dc_fov, indir=deepcopy(in_dir), regex=deepcopy(regex_3d), rounds=deepcopy(rnds), 
                     chans=deepcopy(channels), codebook=deepcopy(cb), min_norm=deepcopy(min_dc_norm), 
                     alpha=deepcopy(lasso_alpha), chanCoefs=deepcopy(coefs_df.values[:, -1]),
-                    wthresh=deepcopy(weight_thresh), outdir=deepcopy(out_dir))
+                    wthresh=deepcopy(weight_thresh), outdir=deepcopy(out_dir),
+                    knee_thrs=knee_thresholds)
 t1 = time.time()
 Parallel(n_jobs=dc_npool, prefer='processes')(delayed(dcpartial)(name) for name in fov_names)
 t2 = time.time()

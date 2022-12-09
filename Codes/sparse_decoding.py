@@ -63,7 +63,7 @@ class Decoder2D():
         if self.verbose:
             print("Done fitting lasso")
 
-    def applyOLS(self):
+    def applyOLS(self, knee_thrs=(0.1, 0.1)):
         if self.lasso_table is None:
             self.ols_table = None
             return
@@ -76,7 +76,7 @@ class Decoder2D():
         w_table = deepcopy(self.lasso_table)
         self.ols_pixs = self.lasso_pixs[(w_table.max(axis=0).values > 0)] # removing pixels with 0 weight
         w_table = w_table.where(w_table.max(axis=0) > 0, drop=True) # removing pixels with 0 weight
-        w_numpy = self.kneeFilter(w_table).values # select barcodes with lasso. weight will be updated with ols weights
+        w_numpy = self.kneeFilter(w_table, abs_thr=knee_thrs).values # select barcodes with lasso. weight will be updated with ols weights
         for j in range(w_table.shape[1]): # iterate over every pixel 
             selinds = np.nonzero(w_numpy[:, j])[0] # non-zero weight indices (after filtering)
             if selinds.shape[0] == 0:
@@ -198,7 +198,7 @@ class Decoder2D():
             Variables:
             w_table: DataArray with barcodes in rows, pixels in columns, populated by weights
             n: upper bound on where the dip in weights occurs
-            abs_thr: a list of length n, or a float. A dip is called at position i if the normalize weight at 
+            abs_thr: a list of length n. A dip is called at position i if the normalize weight at 
                         position i+1 is smaller than abs_thr[i]
         """
         if type(abs_thr) is not list:
