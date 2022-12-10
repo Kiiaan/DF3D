@@ -109,65 +109,65 @@ fheight = 50
 fwidth = int(fheight / bgImg.shape[0] * bgImg.shape[1])
 
 
-""" running blob detection on all FOVs """
-n_blobs = []
-n_rols = []
-all_blobs = []
-for fov in fovs: 
-    print(fov)
-    img_addr = os.path.join(img_dir, fov, anchor_pat.format(fov=fov))
-    anc_img = imread(img_addr)
-    this_blb = blob_log(normalize(anc_img, max_int, min_int), min_sigma=0.7, 
-                        max_sigma=2, num_sigma=6, overlap = 0.6, threshold = 0.3)
-    all_blobs.append(this_blb)
-    n_blobs.append(this_blb.shape[0])
-    n_rols.append(spot_df.loc[spot_df['fov'] == fov].shape[0])
+# """ running blob detection on all FOVs """
+# n_blobs = []
+# n_rols = []
+# all_blobs = []
+# for fov in fovs: 
+#     print(fov)
+#     img_addr = os.path.join(img_dir, fov, anchor_pat.format(fov=fov))
+#     anc_img = imread(img_addr)
+#     this_blb = blob_log(normalize(anc_img, max_int, min_int), min_sigma=0.7, 
+#                         max_sigma=2, num_sigma=6, overlap = 0.6, threshold = 0.3)
+#     all_blobs.append(this_blb)
+#     n_blobs.append(this_blb.shape[0])
+#     n_rols.append(spot_df.loc[spot_df['fov'] == fov].shape[0])
 
 
-""" plotting decoded rolonies vs. anchor blobs """
-n_rols, n_blobs = np.array(n_rols), np.array(n_blobs)
-p = np.polyfit(n_blobs, y = n_rols, deg=1 )
-plt.figure()
-plt.plot([0, np.max(n_blobs)], [0, np.max(n_blobs)], c = 'green', alpha = 0.5, label = 'x=y line')
-plt.plot([0, np.max(n_blobs)], np.polyval(p, [0, np.max(n_blobs)]), c = 'orange', alpha = 0.5, label = 'fitted line')
-plt.scatter(n_blobs, n_rols, alpha =0.7)
-plt.ylabel("#decoded rolonies")
-plt.xlabel("#anchor blobs")
-plt.legend()
-plt.savefig(os.path.join(savingdir, "decoded_rolonies-v-anchor_blobs.pdf"))
+# """ plotting decoded rolonies vs. anchor blobs """
+# n_rols, n_blobs = np.array(n_rols), np.array(n_blobs)
+# p = np.polyfit(n_blobs, y = n_rols, deg=1 )
+# plt.figure()
+# plt.plot([0, np.max(n_blobs)], [0, np.max(n_blobs)], c = 'green', alpha = 0.5, label = 'x=y line')
+# plt.plot([0, np.max(n_blobs)], np.polyval(p, [0, np.max(n_blobs)]), c = 'orange', alpha = 0.5, label = 'fitted line')
+# plt.scatter(n_blobs, n_rols, alpha =0.7)
+# plt.ylabel("#decoded rolonies")
+# plt.xlabel("#anchor blobs")
+# plt.legend()
+# plt.savefig(os.path.join(savingdir, "decoded_rolonies-v-anchor_blobs.pdf"))
 
 
-""" plotting decoding rate histogram """
-dec_rate = n_rols / n_blobs
-fig, ax = plt.subplots()
-ax.hist(dec_rate, bins = 20, alpha = 0.8)
-ax.vlines(np.median(dec_rate), *ax.get_ylim(), color = 'orange', label = 'median')
-ax.set_title("Decoding Rate Histogram")
-ax.set_xlabel("decoding rate")
-ax.set_ylabel("frequency")
-ax.legend()
-plt.savefig(os.path.join(savingdir, "decoding_rate_histogram.pdf"))
+# """ plotting decoding rate histogram """
+# dec_rate = n_rols / n_blobs
+# fig, ax = plt.subplots()
+# ax.hist(dec_rate, bins = 20, alpha = 0.8)
+# ax.vlines(np.median(dec_rate), *ax.get_ylim(), color = 'orange', label = 'median')
+# ax.set_title("Decoding Rate Histogram")
+# ax.set_xlabel("decoding rate")
+# ax.set_ylabel("frequency")
+# ax.legend()
+# plt.savefig(os.path.join(savingdir, "decoding_rate_histogram.pdf"))
 
 
 """ Plotting the rolonies, blobs and decoded rolonies"""
 for i, fov in enumerate(fovs): 
     img_addr = os.path.join(img_dir, fov, anchor_pat.format(fov=fov))
     anc_img = imread(img_addr)
-    this_blb = all_blobs[i]
+    # this_blb = all_blobs[i]
     spot_df_fov = spot_df.loc[spot_df['fov'] == fov]
     fig, ax = plt.subplots(figsize = (20, 20))
-    this_blb = blob_log(normalize(anc_img, max_int, min_int), min_sigma=0.7, 
-                        max_sigma=2, num_sigma=6, overlap = 0.6, threshold = 0.3)
+    # this_blb = blob_log(normalize(anc_img, max_int, min_int), min_sigma=0.7, 
+    #                     max_sigma=2, num_sigma=6, overlap = 0.6, threshold = 0.3)
 
     ax.imshow(normalize(anc_img, max_int, min_int), cmap = 'gray',alpha=0.9)
-    circ_patches = []
-    for x, y, r in this_blb:
-        circ = plt.Circle((y, x), 3 * r, color = 'red', fill = None, alpha=0.8)
-        circ_patches.append(circ)
+    # circ_patches = []
+    # for x, y, r in this_blb:
+    #     circ = plt.Circle((y, x), 3 * r, color = 'red', fill = None, alpha=0.8)
+    #     circ_patches.append(circ)
 
     # add the circles as a collection of patches (faster)
-    col1 = col.PatchCollection(circ_patches, match_original=True)
-    ax.add_collection(col1)
+    # col1 = col.PatchCollection(circ_patches, match_original=True)
+    # ax.add_collection(col1)
 
     spot_df_fov = spot_df.loc[spot_df['fov'] == fov]
     circ_patches = []
@@ -188,14 +188,10 @@ for i, fov in enumerate(fovs):
 spot_df = pd.read_csv(spot_addr, sep = "\t", index_col = 0)
 spot_df = spot_df.loc[spot_df['gene'] != 'Empty']
 gene_counts = spot_df.groupby('gene').size().sort_values(ascending = False)
-print(spot_addr)
-print(spot_df.head())
 destdir = os.path.join(savingdir, "GenePlots")
 if not os.path.isdir(destdir):
     os.makedirs(destdir)
     
-figHeight = 25
-figWidth = figHeight / bgImg.shape[0] * bgImg.shape[1]
 genes = gene_counts.index.to_numpy()
 for g in genes:
     print(g)

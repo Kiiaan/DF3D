@@ -6,6 +6,11 @@ from skimage.measure import label
 from scipy.ndimage.morphology import binary_fill_holes
 import matplotlib.collections as pltCol
 from matplotlib import pyplot as plt 
+import os, numpy as np, pandas as pd
+from skimage.io import imread, imshow
+from scipy.spatial import cKDTree
+import argparse, yaml
+
 class DARTFISH_2D:
     def __init__(self, imgs, spots, topLeft = (0, 0), mask=None, name = None, condition=None, 
                  brightfieldChannel=None):
@@ -123,12 +128,12 @@ class DARTFISH_2D:
 
 
 
-import numpy as np, pandas as pd
-from skimage.io import imread, imshow
-from scipy.spatial import cKDTree
+parser = argparse.ArgumentParser()
+parser.add_argument('param_file')
+args = parser.parse_args()
+params = yaml.safe_load(open(args.param_file, "r"))
 
-spot_df = pd.read_csv("../3_Decoded/all_spots_filtered.tsv", 
-                      sep = '\t', index_col=0)
+spot_df = pd.read_csv(os.path.join(params['dc_out'], "all_spots_filtered.tsv"), sep = '\t', index_col=0)
 spot_df = spot_df.loc[spot_df['gene'] != 'Empty']
 
 DF1 = DARTFISH_2D(None, spot_df)
@@ -167,6 +172,6 @@ fig, ax = plt.subplots(figsize = [25, 6], nrows=1)
 ax.bar(stat_plot.index, stat_plot['mean_k3'])
 ax.tick_params(axis='x', labelrotation = 90, labelsize = 7)
 plt.tight_layout()
-plt.savefig("../5_Analysis/localized_top200_k3.pdf")
+plt.savefig(os.path.join(params['qc_dir'], "localized_top200_k3.pdf"))
 
-stats_norm.to_csv("../5_Analysis/localized_scores.csv", sep="\t")
+stats_norm.to_csv(os.path.join(params['qc_dir'], "localized_scores.csv"), sep="\t")
