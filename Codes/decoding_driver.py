@@ -14,14 +14,14 @@ from joblib import Parallel, delayed
 from datetime import datetime
 from fieldOfView import FOV
         
-def deconv(int_xarr, codebook, size=None, min_norm=0.3, alpha=0.02, knee_thrs=(0.1, 0.1)):
+def deconv(int_xarr, codebook, size=None, min_norm=0.3, alpha=0.02, knee_thrs=[0.1, 0.1]):
     dcObj_ = spd.Decoder2D(int_xarr, codebook, alpha=alpha, size=size)
     dcObj_.prepTrainingPixels(min_norm=min_norm)
     dcObj_.applyLasso()
     dcObj_.applyOLS(knee_thrs=knee_thrs)
     return dcObj_
 
-def normAndDeconv(int_xarr, codebook, min_norm=0.3, alpha=0.02, knee_thrs=(0.2, 0.1), chanCoefs=None, size=None):
+def normAndDeconv(int_xarr, codebook, min_norm=0.3, alpha=0.02, knee_thrs=[0.2, 0.1], chanCoefs=None, size=None):
     """ Normalize intensities by chanCoefs, then decode
         int_xarr: Intensity data array, either with dims (RNDCH, spatial) or (RND, CHN, y, x)
         chanCoefs: a numpy vector. If None, then will be set to a vector of ones
@@ -75,8 +75,8 @@ def estimateChannelCoefs(int_arr, codebook, min_norm=0.3, alpha=0.02, n_iter=3):
         for i in range(sumWeights.shape[0]):
             x = sumWeights[i].values
             y = int_flat_[i].values
-            y = y[x > 0.1]
-            x = x[x > 0.1].reshape(-1, 1)
+            y = y[(x > 0.1) & (x < 0.6)]
+            x = x[(x > 0.1) & (x < 0.6)].reshape(-1, 1)
             newcoefs.append(lr.fit(x, y).coef_[0])
         newcoefs = np.array(newcoefs)
         coefs_list.append(newcoefs)
@@ -121,8 +121,7 @@ cb = spd.Codebook.readFromFile(cb_file)
 min_dc_norm = params['min_dc_norm'] # minimum pixel norm for decoding
 lasso_alpha = params['lasso_reg_value'] # the regularization value for the lasso model
 weight_thresh = params['deconv_weight_threshold'] # the hard threshold on the deconvoled weights from the OLS model
-knee_thresholds = params['knee_threshold'] # knee detection thresholds (1 passes everything, 0 passes nothing)
-
+knee_thresholds = params['knee_thresholds'] # knee detection thresholds (1 passes everything, 0 passes nothing)
 chanCoef_fovs = params['chan_coef_fovs'] # if list, name of fovs to use for channel coef estimation. If int, number of fovs to sample
 chanCoef_frac = params['chan_coef_frac'] # fraction of pixels to sample from each fov to estimate channel coefficients
 chanCoef_iter = params['chan_coef_niter']
@@ -140,9 +139,6 @@ fovSubs = [fov.samplePixels(min_norm=min_dc_norm, sample_frac=chanCoef_frac) for
 fovjoin = xr.concat(fovSubs, dim='spatial')
 
 coefs_df = estimateChannelCoefs(fovjoin, cb, n_iter=chanCoef_iter, min_norm=min_dc_norm)
-# coefs_list = [ftreduce(lambda a, b: a*b, coefs_iters[:(i+1)]) for i in range(len(coefs_iters))]
-# coefs_df = pd.DataFrame(coefs_list).T
-# coefs_df.columns = ["iter{}".format(i) for i in range(len(coefs_df.columns))]
 
 # write the channel coefs to a file with comments
 with open(chanCoef_file, "w") as writer:
@@ -165,6 +161,8 @@ plt.ylabel('coefficient', fontsize=15)
 plt.title('Cycle-channel coefficients', fontsize=15, fontweight='bold')
 plt.tight_layout()
 plt.savefig(chanCoef_plot, transparent=False, facecolor='white')
+
+# coefs_df = pd.read_csv(chanCoef_file, sep="\t", comment="#", index_col=0)
 
 
 """ Run the decoding on all field of views"""
@@ -189,32 +187,23 @@ t2 = time.time()
 print("It took {} seconds".format(t2 - t1))
 
 
-# name = fov_names[0]
-# fov = FOV(name, os.path.join(in_dir, name), regex_3d, rnds, channels, 
-#           normalize_max=normalize_ceiling, min_cutoff=min_intensity) 
-# amip = fov.mip()[:, :, 0:100, 0:100]
-# fig, axes = plt.subplots(nrows=2, ncols=4, figsize=(18, 9))
-# for i, ax in enumerate(axes.ravel()):
-#     ax.imshow(amip[i].transpose().values)
-# plt.tight_layout()
-# plt.savefig(os.path.join(out_dir, "test_raw.pdf"))
+name = chanCoef_fovs[0]
+fov = FOV(name, os.path.join(in_dir, name), regex_3d, rnds, channels, 
+          normalize_max=normalize_ceiling, min_cutoff=min_intensity, imgfilter=smooth_method, smooth_param=sOrW) 
+amip = fov.mip()
+fheight = 9
+fwidth = fheight / 2 * (len(rnds)+1)//2
+fig, axes = plt.subplots(nrows=2, ncols=(len(rnds)+1)//2, figsize=(fwidth, fheight))
+for i, ax in enumerate(axes.ravel()):
+    ax.imshow(amip[i].transpose().values)
+plt.tight_layout()
+plt.savefig(os.path.join(out_dir, "{}_noNorm.pdf".format(name)))
 
 
-# name = fov_names[0]
-# fov = FOV(name, os.path.join(in_dir, name), regex_3d, rnds, channels, 
-#           normalize_max=normalize_ceiling, min_cutoff=min_intensity, imgfilter=smooth_method, smooth_param=sOrW) 
-# amip = fov.mip()[:, :, 0:100, 0:100]
-# fig, axes = plt.subplots(nrows=2, ncols=4, figsize=(18, 9))
-# for i, ax in enumerate(axes.ravel()):
-#     ax.imshow(amip[i].transpose().values)
-# plt.tight_layout()
-# plt.savefig(os.path.join(out_dir, "test_median.pdf"))
-
-
-# c = coefs_df.values[:, -1].reshape((8, 3))
-# amip = fov.mip()[:, :, 0:100, 0:100] / c[..., None, None]
-# fig, axes = plt.subplots(nrows=2, ncols=4, figsize=(18, 9))
-# for i, ax in enumerate(axes.ravel()):
-#     ax.imshow(amip[i].transpose().values)
-# plt.tight_layout()
-# plt.savefig(os.path.join(out_dir, "test_median_norm.pdf"))
+c = coefs_df.values[:, -1].reshape((len(rnds), 3))
+amip = fov.mip() / c[..., None, None]
+fig, axes = plt.subplots(nrows=2, ncols=(len(rnds)+1)//2, figsize=(fwidth, fheight))
+for i, ax in enumerate(axes.ravel()):
+    ax.imshow(amip[i].transpose().values)
+plt.tight_layout()
+plt.savefig(os.path.join(out_dir, "{}_norm.pdf".format(name)))

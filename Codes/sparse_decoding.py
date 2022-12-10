@@ -63,7 +63,7 @@ class Decoder2D():
         if self.verbose:
             print("Done fitting lasso")
 
-    def applyOLS(self, knee_thrs=(0.1, 0.1)):
+    def applyOLS(self, knee_thrs=[0.1, 0.1]):
         if self.lasso_table is None:
             self.ols_table = None
             return
