@@ -6,10 +6,11 @@ from skimage.measure import label, regionprops
 from skimage.segmentation import watershed
 from skimage.feature import peak_local_max
 from skimage.morphology import disk, ball
+from functools import reduce
 
 RND, CHN = 'rnd', 'ch'
 
-class Decoder2D():
+class SparseDecoder():
     def __init__(self, intensities, codebook, alpha, size=None, verbose=False, **kwargs):
         """intensities: xr.DataArray. dims either
             1) (RND, CHN, y, x)
@@ -23,13 +24,16 @@ class Decoder2D():
         self.norms = None # will be set during prepping pixels
         self.size = size # size of the field. Is necessary only if result image is going to be created
         self.lasso_pixs = None # will be set during prepping pixels
-#         w3d = None # will be set in createResultImage
         
     def prepTrainingPixels(self, min_norm=0.5):
         """ Finding pixels that the lasso model will be trained on. The output, self.lasso_pixs is of the form ('spatial', 'RNDCH')"""
         if self.ints.dims == (RND, CHN, 'y', 'x'):
             pixel_intensities = self.ints.stack(spatial=['y', 'x']).stack(RNDCH=[RND, CHN]).transpose('spatial', 'RNDCH')
-            self.size = (self.ints['x'].shape[0], self.ints['y'].shape[0])
+            self.size = (self.ints['x'].shape[0], self.ints['y'].shape[0], 1)
+        if self.ints.dims == (RND, CHN, 'z', 'y', 'x'):
+            pixel_intensities = self.ints.stack(spatial=['z', 'y', 'x']).stack(RNDCH=[RND, CHN]).transpose('spatial', 'RNDCH')
+            self.size = (self.ints['x'].shape[0], self.ints['y'].shape[0], self.ints['z'].shape[0])
+        
         elif self.ints.dims == ('spatial', 'RNDCH'):
             pixel_intensities = deepcopy(self.ints)
         else: 
@@ -56,14 +60,14 @@ class Decoder2D():
         self.lasso_table = xr.DataArray(weights.T,
                                         coords={'x':('pixels', self.lasso_pixs.coords['x'].values),
                                               'y':('pixels', self.lasso_pixs.coords['y'].values),
-    #                                           'z':('pixels', self.lasso_pixs.coords['z'].values),
+                                              'z':('pixels', self.lasso_pixs.coords['z'].values),
                                               'target':('codes', cb_flat.coords['target'].values),
                                               'gene' : ('codes', list(map(lambda x: x.split('_')[0], cb_flat.coords['target'].values)))}, 
                                         dims=['codes', 'pixels'])
         if self.verbose:
             print("Done fitting lasso")
 
-    def applyOLS(self, knee_thrs=[0.1, 0.1]):
+    def applyOLS(self, elbow_thrs=[0.1, 0.1]):
         if self.lasso_table is None:
             self.ols_table = None
             return
@@ -76,7 +80,7 @@ class Decoder2D():
         w_table = deepcopy(self.lasso_table)
         self.ols_pixs = self.lasso_pixs[(w_table.max(axis=0).values > 0)] # removing pixels with 0 weight
         w_table = w_table.where(w_table.max(axis=0) > 0, drop=True) # removing pixels with 0 weight
-        w_numpy = self.kneeFilter(w_table, abs_thr=knee_thrs).values # select barcodes with lasso. weight will be updated with ols weights
+        w_numpy = self.elbowFilter(w_table, abs_thr=elbow_thrs).values # select barcodes with lasso. weight will be updated with ols weights
         for j in range(w_table.shape[1]): # iterate over every pixel 
             selinds = np.nonzero(w_numpy[:, j])[0] # non-zero weight indices (after filtering)
             if selinds.shape[0] == 0:
@@ -87,31 +91,49 @@ class Decoder2D():
         self.ols_table = xr.DataArray(w_numpy, dims = w_table.dims,
                                       coords = w_table.coords)
         
-    def createResultImage(self, w_table, size=None):
+    def make4DWeightMap(self, w_table, size=None, bc_list=None, gene_list=None):
+        """ Makes a 4 dimensional image with dimensions: (codes, z, y, x) populated with barcode weights
+            w_table: a DataArray with dims (codes, pixels) of barcodes weights for each pixel
+            bc_list or gene_list: a list or "all". Only one can be set
+        """
         if self.size is None:
-            raise ValueError("Field size is not set and w3d cannot be constructed")
+            raise ValueError("Field size is not set and w4d cannot be constructed")
         else:
             n_x = self.size[0]
             n_y = self.size[1]
+            n_z = self.size[2]
+        
+        if (bc_list is None) and (gene_list is None):
+            raise ValueError("Both barcode list and gene list are None. One needs to be set.")
 
-        # if not size is None:
-        #     n_x = size[0]
-        #     n_y = size[1]
-        # else:
-        #     n_y = self.ints['y'].shape[0]
-        #     n_x = self.ints['x'].shape[0]
-        if w_table is None:
-            w3d = xr.DataArray(np.zeros((self.cb.shape[0], n_y, n_x)), dims=['bc', 'y', 'x'], #dims=['bc', 'z', 'y', 'x'], 
-                               coords = {'target' : ('bc', self.cb.target.values),
-                                        'gene' : ('bc', list(map(lambda x: x.split('_')[0], self.cb['target'].values))),
-                                        'x': range(n_x), 'y': range(n_y)}) # , 'z': range(n_z)
-        else:
-            w3d = xr.DataArray(np.zeros((len(w_table.codes), n_y, n_x)), dims=['bc', 'y', 'x'], #dims=['bc', 'z', 'y', 'x'], 
-                               coords = {'target' : ('bc', w_table.codes.target.values),
-                                        'gene' : ('bc', list(map(lambda x: x.split('_')[0], w_table['target'].values))),
-                                        'x': range(n_x), 'y': range(n_y)}) # , 'z': range(n_z)
-            w3d[:, w_table['y'], w_table['x']] = w_table
-        return w3d
+        if (bc_list is not None) and (gene_list is not None):
+            raise ValueError("Both barcode list and gene list cannot be set at once.")
+
+        if bc_list == 'all':
+            bcs = self.cb['target'].values
+        elif not bc_list is None:
+            bcs = bc_list
+
+        """ If gene list is given, we have to convert it to a barcode list first"""
+        if gene_list == "all":
+            bcs = self.cb['target'].values
+        elif not gene_list is None: # this keeps the order of the genes
+            bcs = reduce(lambda x, y: x+y, [list(self.cb['target'][self.cb['gene'] == g].values) for g in gene_list])
+        genes = [bc.split('_')[0] for bc in bcs]
+
+        wbc_table = w_table[w_table['target'].isin(bcs)]
+        wbc_table = wbc_table[:, wbc_table.sum(dim='codes') > 0]
+
+        # declare a zero image and populate it with the deconvolved weights
+        w4d = xr.DataArray(np.zeros((len(bcs), n_z, n_y, n_x)), 
+                                dims=['codes', 'z', 'y', 'x'],
+                                coords = {'target' : ('codes', bcs),
+                                          'gene' : ('codes', genes),
+                                          'x': range(n_x), 'y': range(n_y), 
+                                          'z': range(n_z) }) 
+        
+        w4d[wbc_table['codes'], wbc_table['z'], wbc_table['y'], wbc_table['x']] = wbc_table
+        return w4d
     
     def myfit(self, int_row, cdbook, model):
         """ int_row: xarray row of intensities
@@ -140,9 +162,10 @@ class Decoder2D():
         else:
             raise ValueError('No such method {} implemented'.format(method))  
 
-    def createSpotTable(self, w_table, flat_filter = 'topN', volume_filter=None,
-                        flat_filter_kwargs={}, volume_filter_kwargs={}, 
-                        thresh_abs=0.2, peak_footprint=2, peak_mindistnce=1):
+    def createSpotTable(self, w_table, flat_filter = 'topN', #volume_filter=None,
+                        flat_filter_kwargs={}, #volume_filter_kwargs={}, 
+                        thresh_abs=0.2, peak_footprint=2, peak_mindistnce=1,
+                        projectWeights = True):
         """ Filtering the weights, applying watershed segmentation to each barcode, 
                 and summarizing the segmented regions. First flat filter is applied, then volume filter
             flat_filter: A function that accepts a flat (stacked) array like self.lasso_table and 
@@ -158,28 +181,43 @@ class Decoder2D():
         if not flat_filter is None:
             if flat_filter == 'topN':
                 ffilt = self.topNFilter
-            elif flat_filter == 'knee':
-                ffilt = self.kneeFilter
+            elif flat_filter == 'elbow':
+                ffilt = self.elbowFilter
             else: 
                 ffilt = flat_filter
         else:
             ffilt = lambda x: x
         w_table_filt = ffilt(deepcopy(w_table), **flat_filter_kwargs)
             
-        w3d = self.createResultImage(w_table_filt)
+        # w3d = self.createResultImage(w_table_filt)
         
-        if not volume_filter is None:
+        # if not volume_filter is None:
+        #     if self.verbose:
+        #         print("Performing volume filtering on weights")
+        #     if volume_filter == 'topN':
+        #         w3d = self.topNFilter(w3d, **volume_filter_kwargs)
+        #     else:
+        #         w3d = volume_filter(w3d, **volume_filter_kwargs)
+        spots = []
+        for bc in self.cb['target'].values:
             if self.verbose:
-                print("Performing volume filtering on weights")
-            if volume_filter == 'topN':
-                w3d = self.topNFilter(w3d, **volume_filter_kwargs)
-            else:
-                w3d = volume_filter(w3d, **volume_filter_kwargs)
+                print("Performing watershed segmentation on every barcode")
+            wmap = self.make4DWeightMap(w_table, bc_list=[bc]).squeeze()
+            if projectWeights and ('z') in wmap.dims:
+                wmap = wmap.max('z') # maximum weight projection in z
+            spots_g = SparseDecoder.segmentWeights(wmap.values, thresh_abs=thresh_abs, peak_footprint=peak_footprint, peak_mindistnce=peak_mindistnce)
+            if spots_g.shape[0] == 0:
+                continue
+            spots_g['target'] = bc
+            spots_g['gene'] = spots_g['target'].str.split('_').str[0]
+            spots_g['label'] = bc + "_" + spots_g['label'].astype(str)
+            spots.append(spots_g)
         
-        if self.verbose:
-            print("Performing watershed segmentation on every barcode")
-        self.dc_spots = self.segmentAllTargets(w3d, thresh_abs=thresh_abs,
-                                                peak_footprint=peak_footprint, peak_mindistnce=peak_mindistnce)
+        if len(spots) > 0:
+            self.dc_spots = pd.concat(spots, ignore_index=True)
+        else:
+            self.dc_spots = pd.DataFrame()
+
         return deepcopy(self.dc_spots)
         
     @staticmethod
@@ -190,7 +228,7 @@ class Decoder2D():
         return weights.where(weights >= w_ntop[None], 0) #where the filtering happens
     
     @staticmethod
-    def kneeFilter(wtable, n=2, abs_thr = [0.1, 0.1], returnThresh=False):
+    def elbowFilter(wtable, n=2, abs_thr = [0.1, 0.1], returnThresh=False):
         """Keeps the top `n` weights if they are dominant. Procedure:
             For every pixel in w_table (row), sorts the weights in descending order and normalizes them to 
             have max of 1, finds the index at which there is a large dip in weights. If the dip happens in 
@@ -226,7 +264,7 @@ class Decoder2D():
             return out
 
     @staticmethod
-    def kneeFilter_old(wtable, n=2, diff_thr = [0.5, 0.4], returnThresh=False):
+    def elbowFilter_old(wtable, n=2, diff_thr = [0.5, 0.4], returnThresh=False):
         """Keeps the top `n` weights if they are dominant. Procedure:
             For every pixel in w_table (row), sorts the weights in descending order and normalizes them to 
             have max of 1, finds the index at which there is a large dip in weights. If the dip happens in 
@@ -263,24 +301,7 @@ class Decoder2D():
         else: 
             return out
     
-    @staticmethod
-    def segmentAllTargets(w3d, thresh_abs=0.2, peak_footprint=2, peak_mindistnce=1):
-        spots = []
-        for tar in w3d['target'].values:
-            wg = w3d[w3d['target'] == tar].values
-            spots_g = Decoder2D.segmentWeights(wg, thresh_abs=thresh_abs, peak_footprint=peak_footprint, peak_mindistnce=peak_mindistnce)
-            if spots_g.shape[0] == 0:
-                continue
-            spots_g['target'] = tar
-            spots_g['gene'] = spots_g['target'].str.split('_').str[0]
-            spots_g['label'] = tar + "_" + spots_g['label'].astype(str)
-            spots.append(spots_g)
-        if len(spots) > 0:
-            spots = pd.concat(spots, ignore_index=True)
-        else:
-            spots = pd.DataFrame()
-        return spots    
-    
+
     @staticmethod
     def segmentWeights(w_img, thresh_abs=0.2, peak_footprint=2, peak_mindistnce=1):
         """ Given a weight image, perform segmentation and return the properties of the segmented regions.
@@ -313,10 +334,15 @@ class Decoder2D():
         df = pd.DataFrame([[prop[p] for p in properties] for prop in props], columns=properties)
         if df.shape[0] == 0:
             return df
-
-        y, x = list(zip(*df['weighted_centroid'])) # centroid weighted by the intensity image
-        df.insert(0, 'x', np.around(x, 1))
+        
+        if ndims == 2:
+            y, x = list(zip(*df['weighted_centroid'])) # centroid weighted by the intensity image
+            df.insert(0, 'z', 0)
+        else:
+            z, y, x = list(zip(*df['weighted_centroid'])) # centroid weighted by the intensity image
+            df.insert(0, 'z', np.around(z, 1))
         df.insert(1, 'y', np.around(y, 1))
+        df.insert(2, 'x', np.around(x, 1))
         df = df.rename(columns={'equivalent_diameter':'diameter',
                                 'max_intensity':'weight_max',
                                 'mean_intensity':'weight_mean'})
@@ -336,7 +362,9 @@ class Codebook(xr.DataArray):
                                         1 * (bc.values=='2'), 
                                         1 * (bc.values=='3')]) for i, bc in codebook.iterrows()])
         codebook = cls(data=expanded, dims=['target', CHN, RND], 
-                       coords={'target': codebook.index.to_list()})
+                       coords={'target': codebook.index.to_list(),
+                               'gene': ('target', barcodes_df['gene'].to_list())
+                       })
         codebook = codebook.transpose("target", RND, CHN)
         return codebook
 

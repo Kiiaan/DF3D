@@ -40,7 +40,7 @@ class FOV:
                         i_max = self.normalize_max
                     i_min = self.min_cutoff
                     for i in range(len(ch_imgs)):
-                        ch_imgs[i] = (np.clip(ch_imgs[i], i_min, i_max)) / (i_max) # no saturation from the top
+                        ch_imgs[i] = (np.clip(ch_imgs[i], i_min, i_max) - i_min) / (i_max - i_min) # no saturation from the top
             self.img_list = newlist
         
         # filtering
@@ -91,7 +91,7 @@ class FOV:
     def mip(self):
         """ Maximum intensity projection over z-axis"""
         a = self.get_xr()
-        amip = a.reduce(np.max, dim='z', keepdims=False)
+        amip = a.reduce(np.max, dim='z', keepdims=True)
         return amip
         
     def samplePixels(self, sample_frac=1, min_norm=0, is2D = True):
