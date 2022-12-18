@@ -109,6 +109,9 @@
  # where decoding results will be stored + prefix
  dc_out: "../3_Decoded/"
 
+ # If true the deconvoltion will be done in 3d. Current implementation projects the deconved weights and does 2d segmentation
+ deconv3d: true
+
  # path to codebook
  codebook_path: "_codebook/cj484+24empty.txt"
 
