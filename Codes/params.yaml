@@ -130,8 +130,8 @@
  # lasso regularization parameter
  lasso_reg_value: 0.02 
 
- # thresholds for knee-point detection, applied to the OLS weights. First value corresponds to the highest weight, second value to the 2nd highest weight
- knee_thresholds: [0.2, 0.15]
+ # thresholds for elbow-point detection, applied to the OLS weights. First value corresponds to the highest weight, second value to the 2nd highest weight
+ elbow_thresholds: [0.2, 0.15]
 
  # the hard threshold on the deconvoled weights from the OLS model
  deconv_weight_threshold: 0.1 
