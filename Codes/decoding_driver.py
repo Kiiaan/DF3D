@@ -27,7 +27,6 @@ def normAndDeconv(int_xarr, codebook, min_norm=0.3, alpha=0.02, elbow_thrs=[0.2,
         chanCoefs: a numpy vector. If None, then will be set to a vector of ones
     """
     # flattening the images. It's not necessary but makes the code slightly more readable
-    print(int_xarr)
     if int_xarr.dims == (spd.RND, spd.CHN, 'y', 'x'):
         size = (int_xarr['x'].shape[0], int_xarr['y'].shape[0])
         int_xarr = int_xarr.stack(spatial=['y', 'x']).stack(RNDCH=[spd.RND, spd.CHN]).transpose('spatial', 'RNDCH')
@@ -137,38 +136,61 @@ chanCoef_plot = os.path.join(out_dir, "channel_coefficients{}.pdf".format(suffix
 if isinstance(chanCoef_fovs, int):
     chanCoef_fovs = list(np.random.choice(fov_names, chanCoef_fovs))
 
-# """ Estimate channel coefficients"""
-# fovObjs = [FOV(fov, os.path.join(in_dir, fov), regex_3d, rnds, channels, normalize_max=normalize_ceiling, min_cutoff=min_intensity)#, imgfilter=smooth_method, smooth_param=sOrW) 
-#            for fov in chanCoef_fovs]
+""" Estimate channel coefficients"""
+fovObjs = [FOV(fov, os.path.join(in_dir, fov), regex_3d, rnds, channels, normalize_max=normalize_ceiling, min_cutoff=min_intensity)#, imgfilter=smooth_method, smooth_param=sOrW) 
+           for fov in chanCoef_fovs]
 
-# fovSubs = [fov.samplePixels(min_norm=min_dc_norm, sample_frac=chanCoef_frac) for fov in fovObjs]
-# fovjoin = xr.concat(fovSubs, dim='spatial')
+fovSubs = [fov.samplePixels(min_norm=min_dc_norm, sample_frac=chanCoef_frac) for fov in fovObjs]
+fovjoin = xr.concat(fovSubs, dim='spatial')
 
-# coefs_df = estimateChannelCoefs(fovjoin, cb, n_iter=chanCoef_iter, min_norm=min_dc_norm)
+coefs_df = estimateChannelCoefs(fovjoin, cb, n_iter=chanCoef_iter, min_norm=min_dc_norm)
 
-# # write the channel coefs to a file with comments
-# with open(chanCoef_file, "w") as writer:
-#     writer.write("# samples fovs: {}\n".format(chanCoef_fovs))
-#     writer.write("# min_norm={}, sample_frac={}\n".format(min_dc_norm, chanCoef_frac))
-#     writer.write("# total pixels used: {}\n".format(fovjoin.shape[0]))
-#     coefs_df.to_csv(writer, sep="\t")        
+# write the channel coefs to a file with comments
+with open(chanCoef_file, "w") as writer:
+    writer.write("# samples fovs: {}\n".format(chanCoef_fovs))
+    writer.write("# min_norm={}, sample_frac={}\n".format(min_dc_norm, chanCoef_frac))
+    writer.write("# total pixels used: {}\n".format(fovjoin.shape[0]))
+    coefs_df.to_csv(writer, sep="\t")        
 
-# """Plotting the evolution of the coefficiens"""
-# plt.figure(figsize=(10, 4))
-# plt.vlines(np.arange(0, coefs_df.shape[0]+1) - 0.5, coefs_df.min().min(), coefs_df.max().max(), 
-#            linestyle='dashed', color='k', alpha=0.6)
-# for i in range(coefs_df.shape[1]):
-#     x = np.arange(0, coefs_df.shape[0]) + (i-coefs_df.shape[1]//2)/(coefs_df.shape[1]+1)
-#     plt.scatter(x, coefs_df.iloc[:, i], label='iter {}'.format(i), alpha=0.8)
-# plt.legend()
-# plt.xticks(np.arange(0, coefs_df.shape[0], 1), np.arange(0, coefs_df.shape[0], 1))
-# plt.xlabel('cycle-channel', fontsize=15)
-# plt.ylabel('coefficient', fontsize=15)
-# plt.title('Cycle-channel coefficients', fontsize=15, fontweight='bold')
-# plt.tight_layout()
-# plt.savefig(chanCoef_plot, transparent=False, facecolor='white')
+"""Plotting the evolution of the coefficiens"""
+plt.figure(figsize=(10, 4))
+plt.vlines(np.arange(0, coefs_df.shape[0]+1) - 0.5, coefs_df.min().min(), coefs_df.max().max(), 
+           linestyle='dashed', color='k', alpha=0.6)
+for i in range(coefs_df.shape[1]):
+    x = np.arange(0, coefs_df.shape[0]) + (i-coefs_df.shape[1]//2)/(coefs_df.shape[1]+1)
+    plt.scatter(x, coefs_df.iloc[:, i], label='iter {}'.format(i), alpha=0.8)
+plt.legend()
+plt.xticks(np.arange(0, coefs_df.shape[0], 1), np.arange(0, coefs_df.shape[0], 1))
+plt.xlabel('cycle-channel', fontsize=15)
+plt.ylabel('coefficient', fontsize=15)
+plt.title('Cycle-channel coefficients', fontsize=15, fontweight='bold')
+plt.tight_layout()
+plt.savefig(chanCoef_plot, transparent=False, facecolor='white')
 
 coefs_df = pd.read_csv(chanCoef_file, sep="\t", comment="#", index_col=0)
+
+""" Plotting one representing field of view"""
+name = chanCoef_fovs[0]
+fov = FOV(name, os.path.join(in_dir, name), regex_3d, rnds, channels, 
+          normalize_max=normalize_ceiling, min_cutoff=min_intensity, imgfilter=smooth_method, smooth_param=sOrW) 
+amip = fov.mip()
+fheight = 9
+fwidth = fheight / 2 * (len(rnds)+1)//2
+fig, axes = plt.subplots(nrows=2, ncols=(len(rnds)+1)//2, figsize=(fwidth, fheight))
+for i in range(amip.shape[0]):
+    axes.ravel()[i].imshow(amip[i].squeeze().transpose().values)
+plt.tight_layout()
+plt.savefig(os.path.join(out_dir, "{}_noNorm.pdf".format(name)))
+
+
+c = coefs_df.values[:, -1].reshape((len(rnds), 3))
+amip = fov.mip() / c[..., None, None, None]
+fig, axes = plt.subplots(nrows=2, ncols=(len(rnds)+1)//2, figsize=(fwidth, fheight))
+for i in range(amip.shape[0]):
+    axes.ravel()[i].imshow(amip[i].squeeze().transpose().values)
+plt.tight_layout()
+plt.savefig(os.path.join(out_dir, "{}_norm.pdf".format(name)))
+
 
 
 """ Run the decoding on all field of views"""
@@ -195,25 +217,3 @@ t1 = time.time()
 Parallel(n_jobs=dc_npool, prefer='processes')(delayed(dcpartial)(name) for name in fov_names)
 t2 = time.time()
 print("It took {} seconds".format(t2 - t1))
-
-
-name = chanCoef_fovs[0]
-fov = FOV(name, os.path.join(in_dir, name), regex_3d, rnds, channels, 
-          normalize_max=normalize_ceiling, min_cutoff=min_intensity, imgfilter=smooth_method, smooth_param=sOrW) 
-amip = fov.mip()
-fheight = 9
-fwidth = fheight / 2 * (len(rnds)+1)//2
-fig, axes = plt.subplots(nrows=2, ncols=(len(rnds)+1)//2, figsize=(fwidth, fheight))
-for i, ax in enumerate(axes.ravel()):
-    ax.imshow(amip[i].transpose().values)
-plt.tight_layout()
-plt.savefig(os.path.join(out_dir, "{}_noNorm.pdf".format(name)))
-
-
-c = coefs_df.values[:, -1].reshape((len(rnds), 3))
-amip = fov.mip() / c[..., None, None]
-fig, axes = plt.subplots(nrows=2, ncols=(len(rnds)+1)//2, figsize=(fwidth, fheight))
-for i, ax in enumerate(axes.ravel()):
-    ax.imshow(amip[i].transpose().values)
-plt.tight_layout()
-plt.savefig(os.path.join(out_dir, "{}_norm.pdf".format(name)))

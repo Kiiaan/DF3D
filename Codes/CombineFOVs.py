@@ -224,7 +224,7 @@ if not os.path.exists(plot_dir):
 
 all_files = [os.path.join(decoding_dir, file)
              for file in os.listdir(decoding_dir)
-             if re.search(fov_pat, file)]
+             if re.search(fov_pat, file) and file.endswith('.tsv')]
 all_files.sort(key = lambda x: int(re.search(fov_pat, x).group(1)))
 
 
