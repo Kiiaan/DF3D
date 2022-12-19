@@ -137,36 +137,36 @@ chanCoef_plot = os.path.join(out_dir, "channel_coefficients{}.pdf".format(suffix
 if isinstance(chanCoef_fovs, int):
     chanCoef_fovs = list(np.random.choice(fov_names, chanCoef_fovs))
 
-# """ Estimate channel coefficients"""
-# fovObjs = [FOV(fov, os.path.join(in_dir, fov), regex_3d, rnds, channels, normalize_max=normalize_ceiling, min_cutoff=min_intensity)#, imgfilter=smooth_method, smooth_param=sOrW) 
-#            for fov in chanCoef_fovs]
+""" Estimate channel coefficients"""
+fovObjs = [FOV(fov, os.path.join(in_dir, fov), regex_3d, rnds, channels, normalize_max=normalize_ceiling, min_cutoff=min_intensity)#, imgfilter=smooth_method, smooth_param=sOrW) 
+           for fov in chanCoef_fovs]
 
-# fovSubs = [fov.samplePixels(min_norm=min_dc_norm, sample_frac=chanCoef_frac) for fov in fovObjs]
-# fovjoin = xr.concat(fovSubs, dim='spatial')
+fovSubs = [fov.samplePixels(min_norm=min_dc_norm, sample_frac=chanCoef_frac) for fov in fovObjs]
+fovjoin = xr.concat(fovSubs, dim='spatial')
 
-# coefs_df = estimateChannelCoefs(fovjoin, cb, n_iter=chanCoef_iter, min_norm=min_dc_norm)
+coefs_df = estimateChannelCoefs(fovjoin, cb, n_iter=chanCoef_iter, min_norm=min_dc_norm)
 
-# # write the channel coefs to a file with comments
-# with open(chanCoef_file, "w") as writer:
-#     writer.write("# samples fovs: {}\n".format(chanCoef_fovs))
-#     writer.write("# min_norm={}, sample_frac={}\n".format(min_dc_norm, chanCoef_frac))
-#     writer.write("# total pixels used: {}\n".format(fovjoin.shape[0]))
-#     coefs_df.to_csv(writer, sep="\t")        
+# write the channel coefs to a file with comments
+with open(chanCoef_file, "w") as writer:
+    writer.write("# samples fovs: {}\n".format(chanCoef_fovs))
+    writer.write("# min_norm={}, sample_frac={}\n".format(min_dc_norm, chanCoef_frac))
+    writer.write("# total pixels used: {}\n".format(fovjoin.shape[0]))
+    coefs_df.to_csv(writer, sep="\t")        
 
-# """Plotting the evolution of the coefficiens"""
-# plt.figure(figsize=(10, 4))
-# plt.vlines(np.arange(0, coefs_df.shape[0]+1) - 0.5, coefs_df.min().min(), coefs_df.max().max(), 
-#            linestyle='dashed', color='k', alpha=0.6)
-# for i in range(coefs_df.shape[1]):
-#     x = np.arange(0, coefs_df.shape[0]) + (i-coefs_df.shape[1]//2)/(coefs_df.shape[1]+1)
-#     plt.scatter(x, coefs_df.iloc[:, i], label='iter {}'.format(i), alpha=0.8)
-# plt.legend()
-# plt.xticks(np.arange(0, coefs_df.shape[0], 1), np.arange(0, coefs_df.shape[0], 1))
-# plt.xlabel('cycle-channel', fontsize=15)
-# plt.ylabel('coefficient', fontsize=15)
-# plt.title('Cycle-channel coefficients', fontsize=15, fontweight='bold')
-# plt.tight_layout()
-# plt.savefig(chanCoef_plot, transparent=False, facecolor='white')
+"""Plotting the evolution of the coefficiens"""
+plt.figure(figsize=(10, 4))
+plt.vlines(np.arange(0, coefs_df.shape[0]+1) - 0.5, coefs_df.min().min(), coefs_df.max().max(), 
+           linestyle='dashed', color='k', alpha=0.6)
+for i in range(coefs_df.shape[1]):
+    x = np.arange(0, coefs_df.shape[0]) + (i-coefs_df.shape[1]//2)/(coefs_df.shape[1]+1)
+    plt.scatter(x, coefs_df.iloc[:, i], label='iter {}'.format(i), alpha=0.8)
+plt.legend()
+plt.xticks(np.arange(0, coefs_df.shape[0], 1), np.arange(0, coefs_df.shape[0], 1))
+plt.xlabel('cycle-channel', fontsize=15)
+plt.ylabel('coefficient', fontsize=15)
+plt.title('Cycle-channel coefficients', fontsize=15, fontweight='bold')
+plt.tight_layout()
+plt.savefig(chanCoef_plot, transparent=False, facecolor='white')
 
 coefs_df = pd.read_csv(chanCoef_file, sep="\t", comment="#", index_col=0)
 
