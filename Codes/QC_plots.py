@@ -153,13 +153,18 @@ fwidth = int(fheight / bgImg.shape[0] * bgImg.shape[1])
 for i, fov in enumerate(fovs): 
     img_addr = os.path.join(img_dir, fov, anchor_pat.format(fov=fov))
     anc_img = imread(img_addr)
+    if max_int == 'max':
+        m_int = anc_img.max()
+    else:
+        m_int = max_int
     # this_blb = all_blobs[i]
     spot_df_fov = spot_df.loc[spot_df['fov'] == fov]
     fig, ax = plt.subplots(figsize = (20, 20))
     # this_blb = blob_log(normalize(anc_img, max_int, min_int), min_sigma=0.7, 
     #                     max_sigma=2, num_sigma=6, overlap = 0.6, threshold = 0.3)
 
-    ax.imshow(normalize(anc_img, max_int, min_int), cmap = 'gray',alpha=0.9)
+    ax.imshow(normalize(anc_img, m_int, min_int), cmap = 'gray',alpha=0.9)
+
     # circ_patches = []
     # for x, y, r in this_blb:
     #     circ = plt.Circle((y, x), 3 * r, color = 'red', fill = None, alpha=0.8)
