@@ -81,8 +81,8 @@
  # where stitching results are saved 
  stitch_dir: "../2_Projected/stitched/"
 
- # rounds to be stitched. Has to be compatible with `reg_rounds`
- stch_rounds: ["anchor", "dc0", "dc1", "dc2", "dc3", "dc4", "dc5", "dc6", "dc7", "draq5"]
+ # rounds to be stitched. Has to be compatible with `reg_rounds`. If null, `reg_rounds` will be used.
+ stch_rounds: null
 
  # the round to be used as the reference for stitching. if null, uses `ref_reg_cycle`
  stitchRefCycle: null # or "5_dc3"
