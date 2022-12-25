@@ -25,7 +25,7 @@
  NumberOfResolutions: 5
  
  # the type of transformation for registration: translation, rigid, affine
- reg_transform: 'rigid'
+ reg_transform: 'affine'
 
  # if scale of the transformation parameters are estimated. If false, then params_scales needs to be set
  AutomaticScaleEstimation: true
@@ -110,7 +110,7 @@
  dc_out: "../3_Decoded/"
 
  # If true the deconvoltion will be done in 3d. Current implementation projects the deconved weights and does 2d segmentation
- deconv3d: true
+ deconv3d: false
 
  # path to codebook
  codebook_path: "_codebook/cj484+24empty.txt"
@@ -145,29 +145,32 @@
  # fraction of pixels to sample from each fov to estimate channel coefficients
  chan_coef_frac: 0.015
 
- # intensities are scaled such that values higher than this are set to 255.
- max_intensity: 255
+ # intensities are scaled such that values higher than this are set to 255. "max" scales the maximum to be 255.
+ max_intensity: "max" # 255
 
  # intensities below this value are set to 0
  min_intensity: 1
 
  # number of pools for decoding
- dc_npool: 8
+ dc_npool: 5
 
 
 
  ######## Combining FOV's paramteres ########
- # maximum fraction of empty barcodes in a spot's neighborhood. Use "infer" for automatic finding of the value
- emptyRateThr: 0.02 # "infer" 
+ # Cutoff on the probability of spots being empty. Spots above this value are filtered out
+ emptyProbabilityThr: "infer" # 0.3
 
  # radius in pixels for removing rolonies in overlapping boundaries
  overlapRemovalRadius: 4.5
 
- # No. nearest neighbors for calculating local empty rate in the space of 1st and 2nd distance to barcode
- distance_nn_K: 500
+ # fraction of spots per field of view to be used for training the empty classifier (a random forest)
+ distance_nn_frac: 0.3
+ 
+ # n_estimator parameter for the random forest model. See sklearn's documentation for RandomForestClassifier
+ randomForest_nEstimators: 100
 
- # fraction of spots per field of view to be used for the distance nearest neighbor model
- distance_nn_frac: 0.2
+ # max_depth parameter for the random forest model. See sklearn's documentation for RandomForestClassifier
+ randomForest_maxDepth: 4
  
 
  ######## Segmentation paramteres ########
