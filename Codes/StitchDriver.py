@@ -116,7 +116,10 @@ else:
 stitch_dir = params['stitch_dir']
 
 """ names of rounds to be stitched"""
-rounds = params['stch_rounds']# names of the rounds to be stitched
+if not params['stch_rounds'] is None:
+    rounds = params['stch_rounds']
+else:
+    rounds = params['reg_rounds']
 
 stitchRef = params['ref_reg_cycle'] if params['stitchRefCycle'] is None else params['stitchRefCycle'] # the round to be used as the reference for stitching
 stitchChRef = params['ref_reg_ch'] if params['stitchChRef'] is None else params['stitchChRef'] # default reference channel for stitching
