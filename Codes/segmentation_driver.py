@@ -114,20 +114,13 @@ spot_df.to_csv(path.join(saving_path, 'spots_assigned{}.tsv'.format(suff)), sep 
 
 
 # finding the cells cell information: centroid and area
-cellInfos = mask2centroid(mask, ncore = params['centroid_npool'])
-centroid_df = pd.DataFrame({'cell_label' : np.arange(1, mask.max() + 1), 
-                            'centroid_x' : cellInfos[:, 0], 'centroid_y' : cellInfos[:, 1],
-                            'area' : cellInfos[:, 2]})
-centroid_df.to_csv(path.join(saving_path, 'cell_info{}.tsv'.format(suff)), sep = '\t', index = False)
+if not params['skip_seg']:
+    cellInfos = mask2centroid(mask, ncore = params['centroid_npool'])
+    centroid_df = pd.DataFrame({'cell_label' : np.arange(1, mask.max() + 1), 
+                                'centroid_x' : cellInfos[:, 0], 'centroid_y' : cellInfos[:, 1],
+                                'area' : cellInfos[:, 2]})
+    centroid_df.to_csv(path.join(saving_path, 'cell_info{}.tsv'.format(suff)), sep = '\t', index = False)
 
-# # plotting the cells with their label
-# print('Plotting cell map')
-# cellInfos = pd.read_csv(path.join(saving_path, 'cell_info{}.tsv'.format(suff)), sep="\t").to_numpy()[:, 1:]
-# cellm_thr = threading.Thread(target = cellmap_plot, 
-#                                 kwargs = {'cellInfos' : cellInfos, 'bgImg' : bgImg, 
-#                                 'savepath' : path.join(saving_path, 'cell_map{}.png'.format(suff)), 
-#                                 'fwidth' : fwidth, 'fheight' : fheight})
-# cellm_thr.start()
 
 # Making the cell by gene matrix
 print('Making cell by gene matrix')
