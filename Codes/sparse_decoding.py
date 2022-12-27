@@ -121,7 +121,8 @@ class SparseDecoder():
             bcs = reduce(lambda x, y: x+y, [list(self.cb['target'][self.cb['gene'] == g].values) for g in gene_list])
         genes = [bc.split('_')[0] for bc in bcs]
 
-        wbc_table = w_table[w_table['target'].isin(bcs)]
+        bc_inds = [np.where(w_table['target'].values == bc)[0][0] for bc in bcs]
+        wbc_table = w_table[bc_inds]
         wbc_table = wbc_table[:, wbc_table.sum(dim='codes') > 0]
 
         # declare a zero image and populate it with the deconvolved weights
