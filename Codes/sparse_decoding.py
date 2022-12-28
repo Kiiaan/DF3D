@@ -364,7 +364,8 @@ class Codebook(xr.DataArray):
                                         1 * (bc.values=='3')]) for i, bc in codebook.iterrows()])
         codebook = cls(data=expanded, dims=['target', CHN, RND], 
                        coords={'target': codebook.index.to_list(),
-                               'gene': ('target', barcodes_df['gene'].to_list())
+                               'gene': ('target', barcodes_df['gene'].to_list()),
+                               'barcode': ('target', barcodes_df['barcode'])
                        })
         codebook = codebook.transpose("target", RND, CHN)
         return codebook
