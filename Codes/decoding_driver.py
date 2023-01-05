@@ -13,7 +13,8 @@ import logging
 from joblib import Parallel, delayed
 from datetime import datetime
 from fieldOfView import FOV
-        
+import gc
+
 def deconv(int_xarr, codebook, size=None, min_norm=0.3, alpha=0.02, elbow_thrs=[0.1, 0.1]):
     dcObj_ = spd.SparseDecoder(int_xarr, codebook, alpha=alpha, size=size)
     dcObj_.prepTrainingPixels(min_norm=min_norm)
@@ -146,7 +147,7 @@ fovObjs = [FOV(fov, os.path.join(in_dir, fov), regex_3d, rnds, channels, normali
            for fov in chanCoef_fovs]
 
 fovSubs = [fov.samplePixels(min_norm=min_dc_norm, sample_frac=chanCoef_frac) for fov in fovObjs]
-fovjoin = xr.concat(fovSubs, dim='spatial')
+fovjoin = xr.concat(fovSubs, dim='spatial')    
 
 coefs_df = estimateChannelCoefs(fovjoin, cb, n_iter=chanCoef_iter, min_norm=min_dc_norm)
 
@@ -202,6 +203,7 @@ for ax in axes.ravel()[:len(fovObjs)]:
 plt.tight_layout()
 plt.savefig(os.path.join(plot_dir, "norm_hist.pdf"))
 del fovObjs, ints_flat, fovjoin
+gc.collect()
 
 """ Plotting some representing snippets of raw and normalized data"""
 for name in chanCoef_fovs:
@@ -226,16 +228,16 @@ for name in chanCoef_fovs:
     plt.savefig(os.path.join(plot_dir, "Example_{}_norm.pdf".format(name)))
 
 
-
 """ Run the decoding on all field of views"""
 def dc_fov(name, indir, regex, rounds, chans, codebook, min_norm, alpha, elbow_thrs, chanCoefs, wthresh, outdir, is3D):
-    fov = FOV(name, os.path.join(indir, name), regex, rounds, chans, 
-              normalize_max=normalize_ceiling, min_cutoff=min_intensity, imgfilter=smooth_method, smooth_param=sOrW) 
     if is3D:
-        dcObj = normAndDeconv(fov.get_xr(), codebook=codebook, min_norm=min_norm, 
-                              alpha=alpha, chanCoefs=chanCoefs, elbow_thrs=elbow_thrs)
+        ints = FOV(name, os.path.join(indir, name), regex, rounds, chans, 
+              normalize_max=normalize_ceiling, min_cutoff=min_intensity, imgfilter=smooth_method, smooth_param=sOrW).get_xr()
     else:
-        dcObj = normAndDeconv(fov.mip(), codebook=codebook, min_norm=min_norm, 
+        ints = FOV(name, os.path.join(indir, name), regex, rounds, chans, 
+              normalize_max=normalize_ceiling, min_cutoff=min_intensity, imgfilter=smooth_method, smooth_param=sOrW).mip()
+
+    dcObj = normAndDeconv(ints, codebook=codebook, min_norm=min_norm, 
                               alpha=alpha, chanCoefs=chanCoefs, elbow_thrs=elbow_thrs)
     fov_spots = dcObj.createSpotTable(dcObj.ols_table, thresh_abs=wthresh, 
                                       flat_filter=None)
@@ -247,6 +249,7 @@ dcpartial = partial(dc_fov, indir=deepcopy(in_dir), regex=deepcopy(regex_3d), ro
                     alpha=deepcopy(lasso_alpha), chanCoefs=deepcopy(coefs_df.values[:, -1]),
                     wthresh=deepcopy(weight_thresh), outdir=deepcopy(out_dir),
                     elbow_thrs=elbow_thresholds, is3D=is3D)
+
 t1 = time.time()
 Parallel(n_jobs=dc_npool, prefer='processes')(delayed(dcpartial)(name) for name in fov_names)
 t2 = time.time()
