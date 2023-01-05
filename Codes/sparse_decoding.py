@@ -6,7 +6,10 @@ from skimage.measure import label, regionprops
 from skimage.segmentation import watershed
 from skimage.feature import peak_local_max
 from skimage.morphology import disk, ball
-from functools import reduce
+from functools import reduce, partial
+# from joblib import Parallel, delayed
+# from multiprocessing import Pool
+import gc
 
 RND, CHN = 'rnd', 'ch'
 
@@ -38,9 +41,11 @@ class SparseDecoder():
             pixel_intensities = deepcopy(self.ints)
         else: 
             raise ValueError("Incorrect dimensions for self.ints: {}".format(self.ints.dims))
-        self.norms = np.linalg.norm(pixel_intensities.values, ord=2, axis=1)
-        self.lasso_pixs = pixel_intensities[self.norms >= min_norm]
-        
+        norms = np.linalg.norm(pixel_intensities.values, ord=2, axis=1)
+        self.lasso_pixs = pixel_intensities[norms >= min_norm]
+        del self.ints # we no longer need all the intensities
+        gc.collect()
+
     def applyLasso(self):
         if self.lasso_pixs is None:
             raise ValueError("training pixels aren't set yet!")
@@ -56,7 +61,19 @@ class SparseDecoder():
         """ Fitting the Lasso model"""
         if self.verbose:
             print("Starting the lasso fit. Data shape: {}".format(self.lasso_pixs.shape))
-        weights = np.array(list(map(lambda row: self.myfit(row, cb_flat, self.ls), self.lasso_pixs)))
+
+        fit_partial = partial(self.myfit, cdbook=cb_flat, model=self.ls)
+        # weights=np.array(Parallel(n_jobs=2, prefer='processes')(delayed(fit_partial)(row) for row in self.lasso_pixs))
+        # p = Pool(processes = 4)
+        # weights = np.array(list(p.map(fit_partial, self.lasso_pixs)))
+        # print(self.lasso_pixs.shape)
+        # from time import time
+        # t1 = time()
+        # print("doing nothing")
+        # while (time() - t1) < 100:
+        #     continue
+
+        weights = np.array(list(map(fit_partial, self.lasso_pixs))) 
         self.lasso_table = xr.DataArray(weights.T,
                                         coords={'x':('pixels', self.lasso_pixs.coords['x'].values),
                                               'y':('pixels', self.lasso_pixs.coords['y'].values),
@@ -136,7 +153,8 @@ class SparseDecoder():
         w4d[wbc_table['codes'], wbc_table['z'], wbc_table['y'], wbc_table['x']] = wbc_table
         return w4d
     
-    def myfit(self, int_row, cdbook, model):
+    @staticmethod
+    def myfit(int_row, cdbook, model):
         """ int_row: xarray row of intensities
             cdbook: xarray of the codebook with flattened (onehot) barcodes
             model: a sklearn model
