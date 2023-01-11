@@ -127,23 +127,29 @@
  # minimum (l2) norm for pixel intensities to be decoded
  min_dc_norm: 0.3 
 
- # lasso regularization parameter
- lasso_reg_value: 0.02 
+ # regularization parameter for elastic net (sklearn.linear_model.ElasticNet)
+ elasticnet_alpha: 0.02 
+
+ # l1 ratio in elastic net regularization. Set to 1 for lasso which is faster but may not handle non-unique combinations well
+ elasticnet_l1ratio: 0.99
+
+ # coefficient selection for optimization. Can be "random" or "cyclic". "cyclic" is slower but it is deterministic
+ elasticnet_selection: 'random'
 
  # thresholds for elbow-point detection, applied to the OLS weights. First value corresponds to the highest weight, second value to the 2nd highest weight
  elbow_thresholds: [0.2, 0.15]
 
  # the hard threshold on the deconvoled weights from the OLS model
- deconv_weight_threshold: 0.1 
+ deconv_weight_threshold: 0.15
 
  # number of iterations for channel coefficient estimation. 0 to skip 
- chan_coef_niter: 3 
+ chan_coef_niter: 2
 
  # if list, name of fovs to use for channel coef estimation. If int, number of fovs to sample
- chan_coef_fovs: 5
+ chan_coef_fovs: 10
 
- # fraction of pixels to sample from each fov to estimate channel coefficients
- chan_coef_frac: 0.015
+ # number of pixels to sample from each fov to estimate channel coefficients.
+ chan_coef_samples: 8000
 
  # intensities are scaled such that values higher than this are set to 255. "max" scales the maximum to be 255.
  max_intensity: "max" # 255
