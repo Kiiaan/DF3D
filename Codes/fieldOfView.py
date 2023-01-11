@@ -94,10 +94,13 @@ class FOV:
         amip = a.reduce(np.max, dim='z', keepdims=True)
         return amip
         
-    def samplePixels(self, sample_frac=1, min_norm=0, is2D = True):
-        """ Samples sample_frac fraction of pixels whose norm is greater than min_norm
+    def samplePixels(self, size=None, sample_frac=None, min_norm=0, is2D = True):
+        """ Takes a random sample of pixels whose norm is greater than min_norm. 
+            size: Maximum sample size. If set, the sample size will be min(size, #eligible pixels)
+            sample_frac: If set, the sample size will be set by the sample_frac fraction of eligible pixels
+            is2D: If true, then the intensities are maximum projected before sampling. 
+
             Output is a DataArray with dims (RNDCH, spatial)
-            If is2D, then the intensities are maximum projected before sampling. 
         """
         if is2D:
             ints = self.mip()
@@ -111,7 +114,13 @@ class FOV:
 
         norms = np.linalg.norm(ints_flat.values, ord=2, axis=1)
         ints_flat = ints_flat[norms > min_norm]
+        if size is None and sample_frac is None:
+            sample_size = ints_flat.shape[0]
+        if not size is None: 
+            sample_size = np.minimum(ints_flat.shape[0], size)
+        if not sample_frac is None:
+            sample_size = int(ints_flat.shape[0] * sample_frac)
         samp_inds = np.random.choice(range(ints_flat.shape[0]), 
-                                     size=int(ints_flat.shape[0] * sample_frac),
+                                     size=int(sample_size),
                                     replace=False)
         return ints_flat[samp_inds]

@@ -15,14 +15,14 @@ from datetime import datetime
 from fieldOfView import FOV
 import gc
 
-def deconv(int_xarr, codebook, size=None, min_norm=0.3, alpha=0.02, elbow_thrs=[0.1, 0.1]):
-    dcObj_ = spd.SparseDecoder(int_xarr, codebook, alpha=alpha, size=size)
+def deconv(int_xarr, codebook, ENargs, size=None, min_norm=0.3, elbow_thrs=[0.1, 0.1]):
+    dcObj_ = spd.SparseDecoder(int_xarr, codebook, ENargs=ENargs, size=size)
     dcObj_.prepTrainingPixels(min_norm=min_norm)
     dcObj_.applyLasso()
     dcObj_.applyOLS(elbow_thrs=elbow_thrs)
     return dcObj_
 
-def normAndDeconv(int_xarr, codebook, min_norm=0.3, alpha=0.02, elbow_thrs=[0.2, 0.1], chanCoefs=None, size=None):
+def normAndDeconv(int_xarr, codebook, ENargs, min_norm=0.3, elbow_thrs=[0.2, 0.1], chanCoefs=None, size=None):
     """ Normalize intensities by chanCoefs, then decode
         int_xarr: Intensity data array, either with dims (RNDCH, spatial) or (RND, CHN, y, x)
         chanCoefs: a numpy vector. If None, then will be set to a vector of ones
@@ -43,10 +43,10 @@ def normAndDeconv(int_xarr, codebook, min_norm=0.3, alpha=0.02, elbow_thrs=[0.2,
         chanCoefs = np.array(chanCoefs).reshape((1, -1))
 
     intensities = int_xarr / chanCoefs # normalize
-    dcObj = deconv(intensities, codebook, min_norm=min_norm, alpha=alpha, size=size, elbow_thrs=elbow_thrs)
+    dcObj = deconv(intensities, codebook, ENargs, min_norm=min_norm, size=size, elbow_thrs=elbow_thrs)
     return dcObj    
 
-def estimateChannelCoefs(int_arr, codebook, min_norm=0.3, alpha=0.02, n_iter=3):
+def estimateChannelCoefs(int_arr, codebook, ENargs, min_norm=0.3, n_iter=3):
     """ int_arr: Intensity data array, either with dims (RNDCH, spatial) or (RND, CHN, y, x)"""
     print("Channel estimation with data array size {}".format(int_arr.shape))
     cb_flat = codebook.stack(flatcode = (spd.RND, spd.CHN))
@@ -56,32 +56,31 @@ def estimateChannelCoefs(int_arr, codebook, min_norm=0.3, alpha=0.02, n_iter=3):
         intensities_ = deepcopy(int_arr)
         coefs = ftreduce(lambda a, b: a*b, coefs_list)
         t1= time.time()
-        dcObj_ = normAndDeconv(intensities_, cb, min_norm=min_norm, alpha=alpha, chanCoefs=coefs)
+        dcObj_ = normAndDeconv(intensities_, cb, min_norm=min_norm, ENargs=ENargs, chanCoefs=coefs)
         t2 = time.time()
-#         coefs_rnch = np.reshape(coefs, (1, -1))
-#         intensities_ = intensities_ / coefs_rnch
-#         dcObj_ = deconv(intensities_, cb, min_norm=min_norm, alpha=alpha)
         print("Decoding took {} seconds".format(t2 - t1))
 
         """ Finding the coefficients with the new decoding results"""
-        sumWeights = (cb_flat.values.T[:, None, :] * dcObj_.ols_table.values.T).sum(axis=-1) # summing the weights in all pixels, in all cycles that the spots are "on"
+        w_table = dcObj_.ols_table
+        int_flat_ = dcObj_.ols_pixs.transpose()[:, (w_table.values > 0).sum(axis=0) == 1] # selecting pixels with only one dominant weight
+        w_table = w_table[:, (w_table > 0).sum(axis=0) == 1] # selecting pixels with only one dominant weight
+        print("pixels with pure weights : {}".format(w_table.shape))
 
+        sumWeights = (cb_flat.values.T[:, None, :] * w_table.values.T).sum(axis=-1) # summing the weights in all pixels, in all cycles that the spots are "on"
         sumWeights = xr.DataArray(sumWeights, dims=('flatcode', 'pixels'), 
                                  coords={'rndch': ('flatcode', cb_flat.coords['flatcode'].values),
                                             spd.CHN : ('flatcode', cb_flat.coords[spd.CHN].values),
                                             spd.RND : ('flatcode', cb_flat.coords[spd.RND].values),
-                                            'x' : ('pixels', dcObj_.ols_table.coords['x'].values),
-                                            'y' : ('pixels', dcObj_.ols_table.coords['y'].values)})
-
-        int_flat_ = dcObj_.ols_pixs.transpose()
+                                            'x' : ('pixels', w_table.coords['x'].values),
+                                            'y' : ('pixels', w_table.coords['y'].values)})
 
         lr = LinearRegression(fit_intercept=False)
         newcoefs = []
         for i in range(sumWeights.shape[0]):
             x = sumWeights[i].values
             y = int_flat_[i].values
-            y = y[(x > 0.1) & (x < 0.6)]
-            x = x[(x > 0.1) & (x < 0.6)].reshape(-1, 1)
+            y = y[(x > 0.1) & (x < 0.5)]
+            x = x[(x > 0.1) & (x < 0.5)].reshape(-1, 1)
             newcoefs.append(lr.fit(x, y).coef_[0])
         newcoefs = np.array(newcoefs)
         coefs_list.append(newcoefs)
@@ -130,14 +129,22 @@ cb_file = params['codebook_path']
 cb = spd.Codebook.readFromFile(cb_file)
 
 min_dc_norm = params['min_dc_norm'] # minimum pixel norm for decoding
-lasso_alpha = params['lasso_reg_value'] # the regularization value for the lasso model
 weight_thresh = params['deconv_weight_threshold'] # the hard threshold on the deconvoled weights from the OLS model
 elbow_thresholds = params['elbow_thresholds'] # elbow detection thresholds (1 passes everything, 0 passes nothing)
 chanCoef_fovs = params['chan_coef_fovs'] # if list, name of fovs to use for channel coef estimation. If int, number of fovs to sample
-chanCoef_frac = params['chan_coef_frac'] # fraction of pixels to sample from each fov to estimate channel coefficients
+chanCoef_samps = params['chan_coef_samples'] # fraction of pixels to sample from each fov to estimate channel coefficients
 chanCoef_iter = params['chan_coef_niter']
 chanCoef_file = os.path.join(out_dir, "channel_coefficients{}.tsv".format(suffix)) # params['chan_coef_file']
 chanCoef_plot = os.path.join(plot_dir, "channel_coefficients{}.pdf".format(suffix)) # params['chan_coef_file']
+
+elasticnet_params = {   
+                    'alpha' : params['elasticnet_alpha'], # the regularization value for the elastic net model
+                    'l1_ratio' : params['elasticnet_l1ratio'], # l1 ratio. 1 for a full lasso
+                    'positive' : True, # forcing the model to search for positive coefficients
+                    'selection' : params['elasticnet_selection'], # random vs. cyclic selection. 
+                    'warm_start' : True, # may speed up computations a tiny bit
+                    'fit_intercept' : False # our formulation doesn't need this
+                    } # see sklearn.linear_model.ElasticNet for more details
 
 if isinstance(chanCoef_fovs, int):
     chanCoef_fovs = list(np.random.choice(fov_names, chanCoef_fovs))
@@ -146,15 +153,15 @@ if isinstance(chanCoef_fovs, int):
 fovObjs = [FOV(fov, os.path.join(in_dir, fov), regex_3d, rnds, channels, normalize_max=normalize_ceiling, min_cutoff=min_intensity) 
            for fov in chanCoef_fovs]
 
-fovSubs = [fov.samplePixels(min_norm=min_dc_norm, sample_frac=chanCoef_frac) for fov in fovObjs]
+fovSubs = [fov.samplePixels(min_norm=min_dc_norm, size=chanCoef_samps) for fov in fovObjs]
 fovjoin = xr.concat(fovSubs, dim='spatial')    
 
-coefs_df = estimateChannelCoefs(fovjoin, cb, n_iter=chanCoef_iter, min_norm=min_dc_norm)
+coefs_df = estimateChannelCoefs(fovjoin, cb, elasticnet_params, n_iter=chanCoef_iter, min_norm=min_dc_norm)
 
 # write the channel coefs to a file with comments
 with open(chanCoef_file, "w") as writer:
     writer.write("# samples fovs: {}\n".format(chanCoef_fovs))
-    writer.write("# min_norm={}, sample_frac={}\n".format(min_dc_norm, chanCoef_frac))
+    writer.write("# min_norm={}, max sample_size per fov={}\n".format(min_dc_norm, chanCoef_samps))
     writer.write("# total pixels used: {}\n".format(fovjoin.shape[0]))
     coefs_df.to_csv(writer, sep="\t")        
 
@@ -178,9 +185,10 @@ coefs_df = pd.read_csv(chanCoef_file, sep="\t", comment="#", index_col=0)
 """ Plotting norms """
 fheight = 15
 k = cb.sum(dim=[spd.RND, spd.CHN]).values[0]
-min_theo_norm = lasso_alpha * cb.shape[1] * cb.shape[2] / k # theoretical minimum of Lasso: lambda * N/k
-fwidth = fheight / 3 * (len(fovObjs)+1)//3
-fig, axes = plt.subplots(nrows=3, ncols=(len(fovObjs)+1)//3, figsize=(fwidth, fheight), sharex=True)
+min_theo_norm = params['elasticnet_alpha'] * cb.shape[1] * cb.shape[2] / k # theoretical minimum of Lasso: lambda * N/k
+nrow = int(np.sqrt(len(fovObjs)))
+fwidth = fheight / nrow * (len(fovObjs)+1)//nrow
+fig, axes = plt.subplots(nrows=nrow, ncols=(len(fovObjs)+1)//nrow, figsize=(fwidth, fheight), sharex=True)
 for ax, fov in zip(axes.ravel(), fovObjs):
     # ints_flat = fov.samplePixels(sample_frac=0.1, min_norm=0.01)
     ints_flat = fov.mip().stack(spatial=['z', 'y', 'x']).stack(RNDCH=[spd.RND, spd.CHN]).transpose('spatial', 'RNDCH')
@@ -229,24 +237,24 @@ for name in chanCoef_fovs:
 
 
 """ Run the decoding on all field of views"""
-def dc_fov(name, indir, regex, rounds, chans, codebook, min_norm, alpha, elbow_thrs, chanCoefs, wthresh, outdir, is3D):
+def dc_fov(name, indir, regex, rounds, chans, codebook, min_norm, ENargs, elbow_thrs, chanCoefs, wthresh, outdir, is3D):
     if is3D:
         ints = FOV(name, os.path.join(indir, name), regex, rounds, chans, 
               normalize_max=normalize_ceiling, min_cutoff=min_intensity, imgfilter=smooth_method, smooth_param=sOrW).get_xr()
     else:
         ints = FOV(name, os.path.join(indir, name), regex, rounds, chans, 
               normalize_max=normalize_ceiling, min_cutoff=min_intensity, imgfilter=smooth_method, smooth_param=sOrW).mip()
-
     dcObj = normAndDeconv(ints, codebook=codebook, min_norm=min_norm, 
-                              alpha=alpha, chanCoefs=chanCoefs, elbow_thrs=elbow_thrs)
+                              ENargs=ENargs, chanCoefs=chanCoefs, elbow_thrs=elbow_thrs)
     fov_spots = dcObj.createSpotTable(dcObj.ols_table, thresh_abs=wthresh, 
                                       flat_filter=None)
     fov_spots.to_csv(os.path.join(outdir, "{}_rawSpots{}.tsv".format(name, suffix)), sep="\t", float_format='%.3f')
     return 1
 
+
 dcpartial = partial(dc_fov, indir=deepcopy(in_dir), regex=deepcopy(regex_3d), rounds=deepcopy(rnds), 
                     chans=deepcopy(channels), codebook=deepcopy(cb), min_norm=deepcopy(min_dc_norm), 
-                    alpha=deepcopy(lasso_alpha), chanCoefs=deepcopy(coefs_df.values[:, -1]),
+                    ENargs=deepcopy(elasticnet_params), chanCoefs=deepcopy(coefs_df.values[:, -1]),
                     wthresh=deepcopy(weight_thresh), outdir=deepcopy(out_dir),
                     elbow_thrs=elbow_thresholds, is3D=is3D)
 

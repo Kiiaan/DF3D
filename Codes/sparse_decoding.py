@@ -1,6 +1,6 @@
 import numpy as np, xarray as xr, pandas as pd
 from matplotlib import pyplot as plt
-from sklearn.linear_model import Lasso, LinearRegression
+from sklearn.linear_model import ElasticNet, LinearRegression
 from copy import deepcopy
 from skimage.measure import label, regionprops
 from skimage.segmentation import watershed
@@ -10,19 +10,22 @@ from functools import reduce, partial
 # from joblib import Parallel, delayed
 # from multiprocessing import Pool
 import gc
+import warnings
+from sklearn.exceptions import ConvergenceWarning
+warnings.filterwarnings("ignore", category=ConvergenceWarning)
 
 RND, CHN = 'rnd', 'ch'
 
 class SparseDecoder():
-    def __init__(self, intensities, codebook, alpha, size=None, verbose=False, **kwargs):
+    def __init__(self, intensities, codebook, size=None, verbose=False, ENargs=None):
         """intensities: xr.DataArray. dims either
             1) (RND, CHN, y, x)
             2) (spatial, RNDCH). ُُThis shape can be obtained by using DataArray.stack()
+            ENargs: dictionary for sklearn.linear_model.ElasticNet parameters
         """
         self.ints = intensities
-        self.alpha = alpha
         self.cb = codebook
-        self.ls = self._setupLasso(**kwargs)
+        self.EN = self._setupElasticNet(ENargs)
         self.verbose = verbose
         self.norms = None # will be set during prepping pixels
         self.size = size # size of the field. Is necessary only if result image is going to be created
@@ -51,7 +54,8 @@ class SparseDecoder():
             raise ValueError("training pixels aren't set yet!")
         
         cb_flat = self.cb.stack(flatcode = (RND, CHN))
-        
+        cb_fit = cb_flat.values.T
+
         if self.lasso_pixs.shape[0] == 0:   # no pixels with enough fluorescence
             if self.verbose:
                 print("No pixels with enough fluorescence. Skipping deconvolution")
@@ -62,7 +66,6 @@ class SparseDecoder():
         if self.verbose:
             print("Starting the lasso fit. Data shape: {}".format(self.lasso_pixs.shape))
 
-        fit_partial = partial(self.myfit, cdbook=cb_flat, model=self.ls)
         # weights=np.array(Parallel(n_jobs=2, prefer='processes')(delayed(fit_partial)(row) for row in self.lasso_pixs))
         # p = Pool(processes = 4)
         # weights = np.array(list(p.map(fit_partial, self.lasso_pixs)))
@@ -73,7 +76,9 @@ class SparseDecoder():
         # while (time() - t1) < 100:
         #     continue
 
-        weights = np.array(list(map(fit_partial, self.lasso_pixs))) 
+        fit_partial = partial(self.myfit, model=self.EN, cdbook=cb_fit, calculate_r2=False)
+        weights = np.array(list(map(fit_partial, self.lasso_pixs.values)))
+
         self.lasso_table = xr.DataArray(weights.T,
                                         coords={'x':('pixels', self.lasso_pixs.coords['x'].values),
                                               'y':('pixels', self.lasso_pixs.coords['y'].values),
@@ -102,8 +107,8 @@ class SparseDecoder():
             selinds = np.nonzero(w_numpy[:, j])[0] # non-zero weight indices (after filtering)
             if selinds.shape[0] == 0:
                 continue
-            selbc = cb_flat[selinds] # the barcodes with non-zero weights
-            wj = self.myfit(self.ols_pixs[j], selbc, ols) # the ols fit
+            selbc = cb_flat[selinds].values.T # the barcodes with non-zero weights
+            wj = self.myfit(self.ols_pixs[j].values, ols, selbc, calculate_r2=False) # the ols fit
             w_numpy[selinds, j] = wj # replacing the lasso weights with ols weights
         self.ols_table = xr.DataArray(w_numpy, dims = w_table.dims,
                                       coords = w_table.coords)
@@ -154,24 +159,27 @@ class SparseDecoder():
         return w4d
     
     @staticmethod
-    def myfit(int_row, cdbook, model):
-        """ int_row: xarray row of intensities
-            cdbook: xarray of the codebook with flattened (onehot) barcodes
+    def myfit(int_row, model, cdbook, calculate_r2=False):
+        """ int_row: array row of intensities
+            cdbook: array of the codebook with flattened (onehot) barcodes
             model: a sklearn model
         """
-        return model.fit(cdbook.values.T, int_row.values.reshape(-1)).coef_
+        model.fit(cdbook, int_row)
+        if calculate_r2:
+            coefs = model.coef_
+            r2 = model.score(cdbook, int_row)
+            return np.append(coefs, r2)
+        return list(model.coef_) # don't know why, but doesn't work without the list
 
-    def _setupLasso(self, **kwargs):
-        if "positive" in kwargs:
-            positive = kwargs['positive']
-        else:
-            positive = True
-        if "fit_intercept" in kwargs:
-            fit_intercept = kwargs['fit_intercept']
-        else:
-            fit_intercept = False
-            
-        return Lasso(alpha=self.alpha, positive=positive, fit_intercept=fit_intercept)
+    def _setupElasticNet(self, ENargs):
+        alpha = ENargs['alpha'] if ("alpha" in ENargs) else 0.02
+        l1_ratio = ENargs['l1_ratio'] if ("l1_ratio" in ENargs) else 0.99
+        positive = ENargs['positive'] if ("positive" in ENargs) else True
+        selection = ENargs['selection'] if ("selection" in ENargs) else "random"
+        warm_start = ENargs['warm_start'] if ("warm_start" in ENargs) else True
+        fit_intercept = ENargs['fit_intercept'] if ("fit_intercept" in ENargs) else False
+        return ElasticNet(alpha=alpha, l1_ratio=l1_ratio, positive=positive, fit_intercept=fit_intercept,
+                            selection=selection, warm_start=warm_start)
             
     def getResultImage(self, method='lasso'):
         if method == 'lasso':
