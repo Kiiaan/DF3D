@@ -58,7 +58,7 @@ if commandOut.returncode:
     sys.exit(1)
 
 
-""" Run Starfish decoding"""
+""" Run decoding"""
 dc_shell = [sys.executable, "decoding_driver.py", param_file]
 print(dc_shell)
 commandOut = sp.run(dc_shell, stderr = sp.PIPE, text = True)
