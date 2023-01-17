@@ -129,8 +129,10 @@ cb_file = params['codebook_path']
 cb = spd.Codebook.readFromFile(cb_file)
 
 min_dc_norm = params['min_dc_norm'] # minimum pixel norm for decoding
-weight_thresh = params['deconv_weight_threshold'] # the hard threshold on the deconvoled weights from the OLS model
 elbow_thresholds = params['elbow_thresholds'] # elbow detection thresholds (1 passes everything, 0 passes nothing)
+min_maxWeight = params['min_maxWeight'] # thresh_abs in skimage's peak_local_max
+weight_sigma = params['weight_smoothing_sigma'] # gaussian smoothing sigma on weight maps
+min_weight = params['min_weight'] # min weight threshold smoothed maps
 chanCoef_fovs = params['chan_coef_fovs'] # if list, name of fovs to use for channel coef estimation. If int, number of fovs to sample
 chanCoef_samps = params['chan_coef_samples'] # fraction of pixels to sample from each fov to estimate channel coefficients
 chanCoef_iter = params['chan_coef_niter']
@@ -150,10 +152,11 @@ if isinstance(chanCoef_fovs, int):
     chanCoef_fovs = list(np.random.choice(fov_names, chanCoef_fovs))
 
 """ Estimate channel coefficients"""
-fovObjs = [FOV(fov, os.path.join(in_dir, fov), regex_3d, rnds, channels, normalize_max=normalize_ceiling, min_cutoff=min_intensity) 
-           for fov in chanCoef_fovs]
-
-fovSubs = [fov.samplePixels(min_norm=min_dc_norm, size=chanCoef_samps) for fov in fovObjs]
+fovSubs = []
+for fov in chanCoef_fovs:
+    temp_fov = FOV(fov, os.path.join(in_dir, fov), regex_3d, rnds, channels, normalize_max=normalize_ceiling, min_cutoff=min_intensity)
+    temp_fov = temp_fov.samplePixels(min_norm=min_dc_norm, size=chanCoef_samps)
+    fovSubs.append(temp_fov)
 fovjoin = xr.concat(fovSubs, dim='spatial')    
 
 coefs_df = estimateChannelCoefs(fovjoin, cb, elasticnet_params, n_iter=chanCoef_iter, min_norm=min_dc_norm)
@@ -180,44 +183,37 @@ plt.title('Cycle-channel coefficients', fontsize=15, fontweight='bold')
 plt.tight_layout()
 plt.savefig(chanCoef_plot, transparent=False, facecolor='white')
 
-coefs_df = pd.read_csv(chanCoef_file, sep="\t", comment="#", index_col=0)
-
-""" Plotting norms """
-fheight = 15
+""" Plotting some representing snippets of raw and normalized data, as well as the norms"""
 k = cb.sum(dim=[spd.RND, spd.CHN]).values[0]
 min_theo_norm = params['elasticnet_alpha'] * cb.shape[1] * cb.shape[2] / k # theoretical minimum of Lasso: lambda * N/k
-nrow = int(np.sqrt(len(fovObjs)))
-fwidth = fheight / nrow * (len(fovObjs)+1)//nrow
-fig, axes = plt.subplots(nrows=nrow, ncols=(len(fovObjs)+1)//nrow, figsize=(fwidth, fheight), sharex=True)
-for ax, fov in zip(axes.ravel(), fovObjs):
-    # ints_flat = fov.samplePixels(sample_frac=0.1, min_norm=0.01)
-    ints_flat = fov.mip().stack(spatial=['z', 'y', 'x']).stack(RNDCH=[spd.RND, spd.CHN]).transpose('spatial', 'RNDCH')
+
+for name in chanCoef_fovs:
+    fov = FOV(name, os.path.join(in_dir, name), regex_3d, rnds, channels, 
+              normalize_max=normalize_ceiling, min_cutoff=min_intensity, imgfilter=smooth_method, smooth_param=sOrW) 
+    fov_mip = fov.mip()
+    
+    """ Plotting norms """
+    ints_flat = fov_mip.stack(spatial=['z', 'y', 'x']).stack(RNDCH=[spd.RND, spd.CHN]).transpose('spatial', 'RNDCH')
+
     norms = np.linalg.norm(ints_flat.values, ord=2, axis=1)
     norms = norms[norms > 0.01]
+    fig, ax = plt.subplots(figsize=(5, 4))
     ax.hist(norms, bins=100)
     ax.set_xlim([0, 2])
     ax.set_yscale('log', nonpositive='clip')
     ax.set_title(fov.name + " norms")
     ax.set_xticks(np.arange(0, 2, 0.1), minor=True)
     ax.set_xticks(np.arange(0, 2, 0.2), ["{:0.1f}".format(x) for x in np.arange(0, 2, 0.2)], minor=False)
-
-
-for ax in axes.ravel()[:len(fovObjs)]:
     y_max = ax.get_ylim()[1]
     ax.vlines(min_dc_norm, ymin=0, ymax=y_max, colors='orange', alpha=0.6, linestyle='dashed', label='norm threshold')
     ax.vlines(min_theo_norm, ymin=0, ymax=y_max, colors='red', alpha=0.6, linestyle='dashed', label='Lasso theoretical minimum')
     ax.legend()
 
-plt.tight_layout()
-plt.savefig(os.path.join(plot_dir, "norm_hist.pdf"))
-del fovObjs, ints_flat, fovjoin
-gc.collect()
+    plt.tight_layout()
+    plt.savefig(os.path.join(plot_dir, "norm_hist_{}.pdf".format(fov.name)))
 
-""" Plotting some representing snippets of raw and normalized data"""
-for name in chanCoef_fovs:
-    fov = FOV(name, os.path.join(in_dir, name), regex_3d, rnds, channels, 
-              normalize_max=normalize_ceiling, min_cutoff=min_intensity, imgfilter=smooth_method, smooth_param=sOrW) 
-    amip = fov.mip()[..., 400:600, 400:600]
+    """ Plotting raw intensities without normalization """
+    amip = fov_mip[..., 400:600, 400:600]
     fheight = 9
     fwidth = fheight / 2 * (len(rnds)+1)//2
     fig, axes = plt.subplots(nrows=2, ncols=(len(rnds)+1)//2, figsize=(fwidth, fheight))
@@ -226,7 +222,7 @@ for name in chanCoef_fovs:
     plt.tight_layout()
     plt.savefig(os.path.join(plot_dir, "Example_{}_noNorm.pdf".format(name)))
 
-
+    """ Plotting raw intensities WITH normalization """
     c = coefs_df.values[:, -1].reshape((len(rnds), 3))
     amip_norm = amip / c[..., None, None, None]
     fig, axes = plt.subplots(nrows=2, ncols=(len(rnds)+1)//2, figsize=(fwidth, fheight))
@@ -234,10 +230,16 @@ for name in chanCoef_fovs:
         axes.ravel()[i].imshow(amip_norm[i].squeeze().transpose().values)
     plt.tight_layout()
     plt.savefig(os.path.join(plot_dir, "Example_{}_norm.pdf".format(name)))
+    plt.close('all')
+
+del fovSubs, ints_flat, fovjoin, fov
+gc.collect()
+
+coefs_df = pd.read_csv(chanCoef_file, sep="\t", comment="#", index_col=0)
 
 
 """ Run the decoding on all field of views"""
-def dc_fov(name, indir, regex, rounds, chans, codebook, min_norm, ENargs, elbow_thrs, chanCoefs, wthresh, outdir, is3D):
+def dc_fov(name, indir, regex, rounds, chans, codebook, min_norm, ENargs, elbow_thrs, chanCoefs, min_peak, outdir, is3D, gaus_sigma, weight_thresh):
     if is3D:
         ints = FOV(name, os.path.join(indir, name), regex, rounds, chans, 
               normalize_max=normalize_ceiling, min_cutoff=min_intensity, imgfilter=smooth_method, smooth_param=sOrW).get_xr()
@@ -246,8 +248,7 @@ def dc_fov(name, indir, regex, rounds, chans, codebook, min_norm, ENargs, elbow_
               normalize_max=normalize_ceiling, min_cutoff=min_intensity, imgfilter=smooth_method, smooth_param=sOrW).mip()
     dcObj = normAndDeconv(ints, codebook=codebook, min_norm=min_norm, 
                               ENargs=ENargs, chanCoefs=chanCoefs, elbow_thrs=elbow_thrs)
-    fov_spots = dcObj.createSpotTable(dcObj.ols_table, thresh_abs=wthresh, 
-                                      flat_filter=None)
+    fov_spots = dcObj.createSpotTable(dcObj.ols_table, thresh_abs=min_peak, gaus_sigma=gaus_sigma, weight_thresh=weight_thresh)
     fov_spots.to_csv(os.path.join(outdir, "{}_rawSpots{}.tsv".format(name, suffix)), sep="\t", float_format='%.3f')
     return 1
 
@@ -255,8 +256,8 @@ def dc_fov(name, indir, regex, rounds, chans, codebook, min_norm, ENargs, elbow_
 dcpartial = partial(dc_fov, indir=deepcopy(in_dir), regex=deepcopy(regex_3d), rounds=deepcopy(rnds), 
                     chans=deepcopy(channels), codebook=deepcopy(cb), min_norm=deepcopy(min_dc_norm), 
                     ENargs=deepcopy(elasticnet_params), chanCoefs=deepcopy(coefs_df.values[:, -1]),
-                    wthresh=deepcopy(weight_thresh), outdir=deepcopy(out_dir),
-                    elbow_thrs=elbow_thresholds, is3D=is3D)
+                    min_peak=deepcopy(min_maxWeight), outdir=deepcopy(out_dir),
+                    elbow_thrs=elbow_thresholds, is3D=is3D, gaus_sigma=weight_sigma, weight_thresh=min_weight)
 
 t1 = time.time()
 Parallel(n_jobs=dc_npool, prefer='processes')(delayed(dcpartial)(name) for name in fov_names)

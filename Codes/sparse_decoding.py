@@ -7,6 +7,7 @@ from skimage.segmentation import watershed
 from skimage.feature import peak_local_max
 from skimage.morphology import disk, ball
 from functools import reduce, partial
+from scipy.ndimage import gaussian_filter
 # from joblib import Parallel, delayed
 # from multiprocessing import Pool
 import gc
@@ -189,49 +190,37 @@ class SparseDecoder():
         else:
             raise ValueError('No such method {} implemented'.format(method))  
 
-    def createSpotTable(self, w_table, flat_filter = 'topN', #volume_filter=None,
+    def createSpotTable(self, w_table, 
                         flat_filter_kwargs={}, #volume_filter_kwargs={}, 
                         thresh_abs=0.2, peak_footprint=2, peak_mindistnce=1,
-                        projectWeights = True):
+                        projectWeights = True, gaus_sigma=0, weight_thresh=0.01):
         """ Filtering the weights, applying watershed segmentation to each barcode, 
-                and summarizing the segmented regions. First flat filter is applied, then volume filter
-            flat_filter: A function that accepts a flat (stacked) array like self.lasso_table and 
-                returns an array with the same shape and type. "topN" uses the topN filter.
-            volume_filter: A function that accepts a volume like w3d, and 
-                returns a volume of the same shape and type.
-            n: The n value for the topN filter if volume_filter=='topN'
+                and summarizing the segmented regions. 
             thresh_abs, peak_footprint and peak_mindistnce are inputs to self.segmentWeights
                 (technically inputs to peak_local_max)
+            projectWeights: if doing 3D decoding, all weights are maximum projected on z-axis
+            gaus_sigma: sigma of the filter
         """
         if self.verbose:
             print("Performing flat filtering on weights")
-        if not flat_filter is None:
-            if flat_filter == 'topN':
-                ffilt = self.topNFilter
-            elif flat_filter == 'elbow':
-                ffilt = self.elbowFilter
-            else: 
-                ffilt = flat_filter
-        else:
-            ffilt = lambda x: x
-        w_table_filt = ffilt(deepcopy(w_table), **flat_filter_kwargs)
-            
-        # w3d = self.createResultImage(w_table_filt)
         
-        # if not volume_filter is None:
-        #     if self.verbose:
-        #         print("Performing volume filtering on weights")
-        #     if volume_filter == 'topN':
-        #         w3d = self.topNFilter(w3d, **volume_filter_kwargs)
-        #     else:
-        #         w3d = volume_filter(w3d, **volume_filter_kwargs)
+        # iterating over barcodes and extract spots from each
         spots = []
         for bc in self.cb['target'].values:
             if self.verbose:
                 print("Performing watershed segmentation on every barcode")
             wmap = self.make4DWeightMap(w_table, bc_list=[bc]).squeeze()
+            
+            if 'z' in wmap.dims:
+                filt = partial(gaussian_filter, sigma=[0, gaus_sigma, gaus_sigma])
+            else:
+                filt = partial(gaussian_filter, sigma=[gaus_sigma, gaus_sigma])
+            wmap.values = filt(wmap.values)
+            wmap = wmap.where(wmap >= weight_thresh, other=0)
+
             if projectWeights and ('z') in wmap.dims:
                 wmap = wmap.max('z') # maximum weight projection in z
+            
             spots_g = SparseDecoder.segmentWeights(wmap.values, thresh_abs=thresh_abs, peak_footprint=peak_footprint, peak_mindistnce=peak_mindistnce)
             if spots_g.shape[0] == 0:
                 continue
