@@ -203,7 +203,7 @@ for g in genes:
     spots_g = spot_df.loc[spot_df['gene'] == g]
     fig, ax = plt.subplots(figsize=(fwidth, fheight))
     ax.imshow(bgImg, cmap = "gray", vmax=400)
-    plotGene(spots_g, ax=ax, ptsize=7)
+    plotGene(spots_g, ax=ax, ptsize=7, alpha=0.7)
     plt.tight_layout()
     fig.savefig(os.path.join(destdir, "{}_rolonies.pdf".format(g)))
     plt.close()

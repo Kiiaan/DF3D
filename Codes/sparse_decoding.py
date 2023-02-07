@@ -18,10 +18,12 @@ warnings.filterwarnings("ignore", category=ConvergenceWarning)
 RND, CHN = 'rnd', 'ch'
 
 class SparseDecoder():
-    def __init__(self, intensities, codebook, size=None, verbose=False, ENargs=None):
-        """intensities: xr.DataArray. dims either
-            1) (RND, CHN, y, x)
-            2) (spatial, RNDCH). ُُThis shape can be obtained by using DataArray.stack()
+    def __init__(self, intensities, codebook, alpha, size=None, verbose=False, ENargs={}, min_norm=0.5):
+        """ intensities: xr.DataArray. dims either
+                1) (RND, CHN, y, x)
+                2) (spatial, RNDCH). ُُThis shape can be obtained by using DataArray.stack()
+            alpha: int or a vectorized function. If int, same value to be used for all pixels. 
+                    If a function, pixel norms will be used as input to generate the values for alpha
             ENargs: dictionary for sklearn.linear_model.ElasticNet parameters
         """
         self.ints = intensities
@@ -31,8 +33,11 @@ class SparseDecoder():
         self.norms = None # will be set during prepping pixels
         self.size = size # size of the field. Is necessary only if result image is going to be created
         self.lasso_pixs = None # will be set during prepping pixels
-        
-    def prepTrainingPixels(self, min_norm=0.5):
+        self.min_norm = min_norm
+        self.alphaGenerator = alpha
+        self._prepTrainingPixels(self.min_norm)
+
+    def _prepTrainingPixels(self, min_norm=0.5):
         """ Finding pixels that the lasso model will be trained on. The output, self.lasso_pixs is of the form ('spatial', 'RNDCH')"""
         if self.ints.dims == (RND, CHN, 'y', 'x'):
             pixel_intensities = self.ints.stack(spatial=['y', 'x']).stack(RNDCH=[RND, CHN]).transpose('spatial', 'RNDCH')
@@ -47,6 +52,16 @@ class SparseDecoder():
             raise ValueError("Incorrect dimensions for self.ints: {}".format(self.ints.dims))
         norms = np.linalg.norm(pixel_intensities.values, ord=2, axis=1)
         self.lasso_pixs = pixel_intensities[norms >= min_norm]
+
+        # preparing the alphas
+        self.alphas = np.zeros(shape=self.lasso_pixs.shape[0])
+        if callable(self.alphaGenerator):
+            self.alphas = self.alphaGenerator(norms[norms >= min_norm])
+        elif isinstance(self.alphaGenerator, float):
+            self.alphas += self.alphaGenerator
+        else:
+            raise ValueError('SparseDecoder.alphaGenerator should either be a float or callable.')
+
         del self.ints # we no longer need all the intensities
         gc.collect()
 
@@ -77,8 +92,8 @@ class SparseDecoder():
         # while (time() - t1) < 100:
         #     continue
 
-        fit_partial = partial(self.myfit, model=self.EN, cdbook=cb_fit, calculate_r2=False)
-        weights = np.array(list(map(fit_partial, self.lasso_pixs.values)))
+        fit_partial = partial(self.fitEN, model=self.EN, cdbook=cb_fit, calculate_r2=False)
+        weights = np.array(list(map(fit_partial, self.lasso_pixs.values, self.alphas)))
 
         self.lasso_table = xr.DataArray(weights.T,
                                         coords={'x':('pixels', self.lasso_pixs.coords['x'].values),
@@ -172,14 +187,28 @@ class SparseDecoder():
             return np.append(coefs, r2)
         return list(model.coef_) # don't know why, but doesn't work without the list
 
+    def fitEN(self, int_row, alpha, model, cdbook, calculate_r2=False):
+        """ int_row: array row of intensities
+            cdbook: array of the codebook with flattened (onehot) barcodes
+            model: a sklearn model
+        """
+        model.alpha = alpha
+        model.fit(cdbook, int_row)
+        if calculate_r2:
+            coefs = model.coef_
+            r2 = model.score(cdbook, int_row)
+            return np.append(coefs, r2)
+        return list(model.coef_) # don't know why, but doesn't work without the list
+
+
     def _setupElasticNet(self, ENargs):
-        alpha = ENargs['alpha'] if ("alpha" in ENargs) else 0.02
+        # alpha = ENargs['alpha'] if ("alpha" in ENargs) else 0.02 # may be overwritten
         l1_ratio = ENargs['l1_ratio'] if ("l1_ratio" in ENargs) else 0.99
         positive = ENargs['positive'] if ("positive" in ENargs) else True
         selection = ENargs['selection'] if ("selection" in ENargs) else "random"
         warm_start = ENargs['warm_start'] if ("warm_start" in ENargs) else True
         fit_intercept = ENargs['fit_intercept'] if ("fit_intercept" in ENargs) else False
-        return ElasticNet(alpha=alpha, l1_ratio=l1_ratio, positive=positive, fit_intercept=fit_intercept,
+        return ElasticNet(l1_ratio=l1_ratio, positive=positive, fit_intercept=fit_intercept,
                             selection=selection, warm_start=warm_start)
             
     def getResultImage(self, method='lasso'):
@@ -269,7 +298,11 @@ class SparseDecoder():
         w_thr[:] = np.inf # anything that's not set below will never pass threshold
 
         for i in range(n): # iterate over the first n positions
-            w_thr[warr_norm[i+1, :] <= abs_thr[i]] = warr_sort[i, warr_norm[i+1, :] <= abs_thr[i]] # update threshold values if dips are identified
+            if i == 0:
+                w_thr[warr_norm[i+1, :] <= abs_thr[i]] = warr_sort[i, warr_norm[i+1, :] <= abs_thr[i]] # update threshold values if dips are identified
+            if i > 0:
+                inds2upd = (warr_norm[i+1, :] <= abs_thr[i]) & (warr_norm[i, :] > abs_thr[i]) # dips should not carry over to next positions
+                w_thr[inds2upd] = warr_sort[i, inds2upd] # update threshold values if dips are identified
        
         
         out = wtable.where(wtable >= w_thr, other=0)
@@ -384,6 +417,38 @@ class Codebook(xr.DataArray):
                        })
         codebook = codebook.transpose("target", RND, CHN)
         return codebook
+
+
+def deconv(int_xarr, codebook, alpha, ENargs, size=None, min_norm=0.3, elbow_thrs=[0.1, 0.1]):
+    """ Convenience function for decoding"""
+    dcObj_ = SparseDecoder(int_xarr, codebook, alpha, ENargs=ENargs, size=size, min_norm=min_norm)
+    dcObj_.applyLasso()
+    dcObj_.applyOLS(elbow_thrs=elbow_thrs)
+    return dcObj_
+
+def normAndDeconv(int_xarr, codebook, alpha, ENargs, min_norm=0.3, elbow_thrs=[0.2, 0.1], chanCoefs=None, size=None):
+    """ Convenience function for decoding that normalizes intensities by chanCoefs
+        int_xarr: Intensity data array, either with dims (RNDCH, spatial) or (RND, CHN, y, x)
+        chanCoefs: a numpy vector. If None, then will be set to a vector of ones
+    """
+    # flattening the images. It's not necessary but makes the code slightly more readable
+    if int_xarr.dims == (RND, CHN, 'y', 'x'):
+        size = (int_xarr['x'].shape[0], int_xarr['y'].shape[0])
+        int_xarr = int_xarr.stack(spatial=['y', 'x']).stack(RNDCH=[RND, CHN]).transpose('spatial', 'RNDCH')
+
+    if int_xarr.dims == (RND, CHN, 'z', 'y', 'x'):
+        size = (int_xarr['x'].shape[0], int_xarr['y'].shape[0], int_xarr['z'].shape[0])
+        int_xarr = int_xarr.stack(spatial=['z', 'y', 'x']).stack(RNDCH=[RND, CHN]).transpose('spatial', 'RNDCH')
+        
+    # make sure chanCoefs is a row vector
+    if chanCoefs is None:
+        chanCoefs = np.ones((1, int_xarr.shape[1]))
+    else:
+        chanCoefs = np.array(chanCoefs).reshape((1, -1))
+
+    intensities = int_xarr / chanCoefs # normalize
+    dcObj = deconv(intensities, codebook, alpha, ENargs, min_norm=min_norm, size=size, elbow_thrs=elbow_thrs)
+    return dcObj    
 
         
 from scipy.spatial import cKDTree

@@ -57,6 +57,15 @@ if commandOut.returncode:
     print("Error in stitching.")
     sys.exit(1)
 
+""" Run the pre-decoding code"""
+pdc_shell = [sys.executable, "findDecodingParams.py", param_file]
+print(pdc_shell)
+commandOut = sp.run(pdc_shell, stderr = sp.PIPE, text = True)
+
+print(commandOut.stderr)
+if commandOut.returncode:
+    print("Error in findDecodingParams.py.")
+    sys.exit(1)
 
 """ Run decoding"""
 dc_shell = [sys.executable, "decoding_driver.py", param_file]

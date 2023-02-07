@@ -131,13 +131,14 @@
  min_intensity: 1
 
  # number of pools for decoding
- dc_npool: 5
+ dc_npool: 10
 
  # minimum (l2) norm for pixel intensities to be decoded
  min_dc_norm: 0.3 
 
- # regularization parameter for elastic net (sklearn.linear_model.ElasticNet)
- elasticnet_alpha: 0.02 
+ # regularization parameter for elastic net (sklearn.linear_model.ElasticNet). if int, this value will be used for all pixels.
+ # If a range (e.g. [0.01, 0.1]), a value from this range that varies based on pixel norms
+ elasticnet_alpha: [0.01, 0.1] # 0.05 
 
  # l1 ratio in elastic net regularization. Set to 1 for lasso which is faster but may not handle non-unique combinations well
  elasticnet_l1ratio: 0.99
@@ -146,7 +147,7 @@
  elasticnet_selection: 'random'
 
  # thresholds for elbow-point detection, applied to the elasticnet weights. First value corresponds to the highest weight, second value to the 2nd highest weight
- elbow_thresholds: [0.2, 0.15]
+ elbow_thresholds: [0.5, 0.30]
 
  # threshold for the maximum spot weight, above which are kept (input to skimage.feature.peak_local_max)
  min_maxWeight: 0.15 
@@ -155,19 +156,21 @@
  weight_smoothing_sigma: 0.7
 
  # threshold on the weights after gaussian smoothing. If smoothing is being done, has to be >0.
- min_weight: 0.05
+ min_weight: 0.08
 
  # number of iterations for channel coefficient estimation. 0 to skip 
  chan_coef_niter: 2
 
+ # Elastic-net regularization parameter, only for estimating channel coefficients
+ chan_coef_alpha: 0.02 
+
  # if list, name of fovs to use for channel coef estimation. If int, number of fovs to sample
- chan_coef_fovs: 15
+ chan_coef_fovs: 25
 
  # number of pixels to sample from each fov to estimate channel coefficients.
- chan_coef_samples: 4000
+ chan_coef_samples: 3000
 
  
-
 
  ######## Combining FOV's paramteres ########
  # Cutoff on the probability of spots being empty. Spots above this value are filtered out
@@ -177,13 +180,13 @@
  overlapRemovalRadius: 4.5
 
  # fraction of spots per field of view to be used for training the empty classifier (a random forest)
- distance_nn_frac: 0.3
+ distance_nn_frac: 0.05
  
  # n_estimator parameter for the random forest model. See sklearn's documentation for RandomForestClassifier
- randomForest_nEstimators: 100
+ randomForest_nEstimators: 250
 
  # max_depth parameter for the random forest model. See sklearn's documentation for RandomForestClassifier
- randomForest_maxDepth: 4
+ randomForest_maxDepth: 9
  
 
  ######## Segmentation paramteres ########
@@ -220,7 +223,7 @@
  seg_suf: "_custom"
  
  # whether to skip the segmentation. For troubleshooting
- skip_seg: true
+ skip_seg: false
 
  # number of cores for finding centroids
  centroid_npool: 10

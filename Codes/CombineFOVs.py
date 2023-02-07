@@ -71,7 +71,7 @@ def trainClassifier(n_estimators=100, max_depth=4, class_weight='balanced', prob
     
 
     """ 2. Prepping the data for the training """
-    X = spots_train[['weight_max', 'area']].to_numpy()
+    X = spots_train[['weight_max', 'area', 'weight_mean']].to_numpy()
     X[:, 1] += np.random.normal(scale=0.15, size = X[:, 1].shape) # A little randomization in area may help with the classification
     X_mean, X_std = X.mean(axis=0), X.std(axis=0)
     X = (X - X_mean) / X_std
@@ -107,22 +107,23 @@ def trainClassifier(n_estimators=100, max_depth=4, class_weight='balanced', prob
     plt.savefig(os.path.join(plot_dir, "training_empty_prob_hist.pdf"))
 
     # scatter plots with empty probability as color
-    fig, ax = plt.subplots(ncols=2, nrows=2, figsize=(12, 10), sharex=True, sharey=True)
+    fig, ax = plt.subplots(ncols=4, nrows=2, figsize=(15, 7), sharex='col', sharey='col')
     ax = ax.ravel()
     X_unscaled = X * X_std + X_mean
     ax[0].scatter(X_unscaled[~y, 0], X_unscaled[~y, 1], s=0.1)
-    ax[0].set_ylim([0, np.percentile(X_unscaled[:, 1], 99.8) + 2])
     ax[0].set_xlabel("weight_max", fontsize=12, fontweight='bold')
     ax[0].set_ylabel("area", fontsize=12, fontweight='bold')
     ax[0].set_title("Non-empty spots")
 
-    # ax[1].scatter(spots_train.loc[y, 'weight_max'], spots_train.loc[y, 'area'], s=0.1)
-    ax[1].scatter(X_unscaled[y, 0], X_unscaled[y, 1], s=0.1)
+    sc = ax[1].scatter(spots_train.loc[~y, 'weight_max'], spots_train.loc[~y, 'area'], c=probs_train[~y], s=0.1)
     ax[1].set_xlabel("weight_max", fontsize=12, fontweight='bold')
     ax[1].set_ylabel("area", fontsize=12, fontweight='bold')
-    ax[1].set_title("Empty spots")
+    ax[1].set_title("Empty probability of non-empty spots")
+    divider = make_axes_locatable(ax[1])
+    cax = divider.append_axes('right', size='5%', pad=0.05)
+    fig.colorbar(sc, cax=cax)
 
-    sc = ax[2].scatter(spots_train.loc[~y, 'weight_max'], spots_train.loc[~y, 'area'], c=probs_train[~y], s=0.1)
+    sc = ax[2].scatter(spots_train.loc[~y, 'weight_max'], spots_train.loc[~y, 'area'], c=probs_train[~y] < prob_thresh, s=0.1)
     ax[2].set_xlabel("weight_max", fontsize=12, fontweight='bold')
     ax[2].set_ylabel("area", fontsize=12, fontweight='bold')
     ax[2].set_title("Empty probability of non-empty spots")
@@ -130,14 +131,55 @@ def trainClassifier(n_estimators=100, max_depth=4, class_weight='balanced', prob
     cax = divider.append_axes('right', size='5%', pad=0.05)
     fig.colorbar(sc, cax=cax)
 
-    sc=ax[3].scatter(spots_train.loc[y, 'weight_max'], spots_train.loc[y, 'area'], c=probs_train[y], s=0.1)
+    sc = ax[3].scatter(spots_train.loc[~y, 'weight_max'], spots_train.loc[~y, 'weight_mean'], c=probs_train[~y], s=0.1)
     ax[3].set_xlabel("weight_max", fontsize=12, fontweight='bold')
-    ax[3].set_ylabel("area", fontsize=12, fontweight='bold')
-    ax[3].set_title("Empty probability of empty spots")
+    ax[3].set_ylabel("weight_mean", fontsize=12, fontweight='bold')
+    ax[3].set_title("Empty probability of non-empty spots")
     divider = make_axes_locatable(ax[3])
     cax = divider.append_axes('right', size='5%', pad=0.05)
     fig.colorbar(sc, cax=cax)
+
+    # ax[1].scatter(spots_train.loc[y, 'weight_mean'], spots_train.loc[y, 'area'], s=0.1)
+    ax[4].scatter(X_unscaled[y, 0], X_unscaled[y, 1], s=0.1)
+    ax[4].set_xlabel("weight_max", fontsize=12, fontweight='bold')
+    ax[4].set_ylabel("area", fontsize=12, fontweight='bold')
+    ax[4].set_title("Empty spots")
+
+
+    sc=ax[5].scatter(spots_train.loc[y, 'weight_max'], spots_train.loc[y, 'area'], c=probs_train[y], s=0.1)
+    ax[5].set_xlabel("weight_max", fontsize=12, fontweight='bold')
+    ax[5].set_ylabel("area", fontsize=12, fontweight='bold')
+    ax[5].set_title("Empty probability of empty spots")
+    divider = make_axes_locatable(ax[5])
+    cax = divider.append_axes('right', size='5%', pad=0.05)
+    fig.colorbar(sc, cax=cax)
     plt.tight_layout()
+
+    sc=ax[6].scatter(spots_train.loc[y, 'weight_max'], spots_train.loc[y, 'area'], c=probs_train[y] < prob_thresh, s=0.1)
+    ax[6].set_xlabel("weight_max", fontsize=12, fontweight='bold')
+    ax[6].set_ylabel("area", fontsize=12, fontweight='bold')
+    ax[6].set_title("Empty probability of empty spots")
+    divider = make_axes_locatable(ax[6])
+    cax = divider.append_axes('right', size='5%', pad=0.05)
+    fig.colorbar(sc, cax=cax)
+    plt.tight_layout()
+
+    sc=ax[7].scatter(spots_train.loc[y, 'weight_max'], spots_train.loc[y, 'weight_mean'], c=probs_train[y], s=0.1)
+    ax[7].set_xlabel("weight_max", fontsize=12, fontweight='bold')
+    ax[7].set_ylabel("weight_mean", fontsize=12, fontweight='bold')
+    ax[7].set_title("Empty probability of empty spots")
+    divider = make_axes_locatable(ax[7])
+    cax = divider.append_axes('right', size='5%', pad=0.05)
+    fig.colorbar(sc, cax=cax)
+
+    ax[0].set_ylim([0, np.percentile(X_unscaled[:, 1], 99.5) + 2])
+    ax[1].set_ylim([0, np.percentile(X_unscaled[:, 1], 99.5) + 2])
+    ax[2].set_ylim([0, np.percentile(X_unscaled[:, 1], 99.5) + 2])
+    ax[4].set_ylim([0, np.percentile(X_unscaled[:, 1], 99.5) + 2])
+    ax[5].set_ylim([0, np.percentile(X_unscaled[:, 1], 99.5) + 2])
+    ax[6].set_ylim([0, np.percentile(X_unscaled[:, 1], 99.5) + 2])
+    plt.tight_layout()
+
     plt.savefig(os.path.join(plot_dir, "training_empty_rate_scatter.png"), dpi=250)
 
 
@@ -156,6 +198,7 @@ def trainClassifier(n_estimators=100, max_depth=4, class_weight='balanced', prob
     plt.savefig(os.path.join(plot_dir, "probThreshold-v-emptyFraction.png"), dpi=250)
     
     return rf1, (X_mean, X_std), (ax[0].get_xlim(), ax[0].get_ylim()), prob_thresh
+
 
 def readSpots(infile, coords_df=None, fov=None):
     """ Reads a dataframe for spots and adds global coordinates and other info 
@@ -183,14 +226,6 @@ params = yaml.safe_load(open(args.param_file, "r"))
 
 decoding_dir = params['dc_out'] # the main directory for decoding 
 
-# if params['metadata_file'] is None:
-#     metadataFile = os.path.join(params['dir_data_raw'], params['ref_reg_cycle'], 'MetaData', "{}.xml".format(params['ref_reg_cycle']))
-# else:
-#     metadataFile = params['metadata_file']
-    
-# npix, vox, number_of_fovs = getMetaData(metadataFile)
-# voxel_info = {"Y":vox['2'], "X":vox['1'], "Z":vox['3']}
-
 FOVcoords = os.path.join(params['stitch_dir'], "registration_reference_coordinates.csv")
 FOVcoords = pd.read_csv(FOVcoords).set_index('fov')
 FOVcoords['x'] = FOVcoords['x'] - FOVcoords['x'].min() # making sure no pixels are in negative coordiates
@@ -209,8 +244,8 @@ fov_pat = params['fov_pat'] # the regex showing specifying the tile names.
 plot_dir = os.path.join(decoding_dir,  "dcPlots") # where the decoding QC plots are saved
 
 # legends for scatter plots
-pass_patch = mpatches.Patch(color=viridis(0), label='pass filter')
-rjct_patch = mpatches.Patch(color=viridis(viridis.N), label='rejected')
+pass_patch = mpatches.Patch(color=viridis(viridis.N), label='pass filter')
+rjct_patch = mpatches.Patch(color=viridis(0), label='rejected')
 
 if not os.path.exists(plot_dir):
     os.makedirs(plot_dir)
@@ -231,7 +266,7 @@ for i, file in enumerate(all_files):
         print('Cleaning {}'.format(re.search(fov_pat, file).group(0)))
     spots_fov = readSpots(file, FOVcoords)
 
-    fov_X = spots_fov[['weight_max', 'area']].to_numpy()
+    fov_X = spots_fov[['weight_max', 'area', 'weight_mean']].to_numpy()
     fov_X = (fov_X - X_mean) / X_std
     spots_fov['EmptyProb'] = clf.predict_proba(fov_X)[:, 1]
     spots_pass = spots_fov.loc[spots_fov['EmptyProb'] <= prob_thresh]
