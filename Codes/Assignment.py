@@ -22,29 +22,33 @@ class RolonyAssigner:
             2. Find the object boundaries on this binary image
             3. Train a KD tree on these boundary positions
             4. Find the closest boundary pixel to each rolony
-            5. Find the nucleus label of that boundary pixel. """
-        self.nucleiImg = nucleiImg
-        
+            5. Find the nucleus label of that boundary pixel. 
+            6. If the rolony covers a nucleus, set the distance to 0
+        """
         if axes is not None:
-            self.rolonies = rolonyDf[axes].round().astype(int).values
+            rolonies = rolonyDf[axes].round().astype(int).values
         else:
-            self.rolonies = rolonyDf.round().astype(int).values
+            rolonies = rolonyDf.round().astype(int).values
         
         if flipCoords:
             print("Flipping the rolony coordinates")
-            self.rolonies = np.flip(self.rolonies, axis = 1)
+            rolonies = np.flip(rolonies, axis = 1)
         
-        nucBoundImg = find_boundaries(self.nucleiImg, mode = 'inner') # finding the inner boundaries
+        nucBoundImg = find_boundaries(nucleiImg, mode = 'inner') # finding the inner boundaries
         boundPxls = np.transpose(np.nonzero(nucBoundImg)) # listing the boundary pixels
         kdtree = cKDTree(data = boundPxls) # training the kdtree
-        self.nearestPxl_dist, nearestPxl_inds = kdtree.query(self.rolonies) # finding the nearest boundary pixels to rolonies
+        self.nearestPxl_dist, nearestPxl_inds = kdtree.query(rolonies) # finding the nearest boundary pixels to rolonies
         
         """ iterating over the rolonies, writing the label of their nearest nucleus 
         and their distances to two vectors """
-        self.nucLabels = self.nucleiImg[tuple(zip(*boundPxls[nearestPxl_inds]))]
+        self.nucLabels = nucleiImg[tuple(zip(*boundPxls[nearestPxl_inds]))]
+        
+        """ Finding the rolonies that directly cover a segmented nucleus"""
+        in_inds = nucleiImg[tuple(zip(*rolonies))] > 0 
+        self.nearestPxl_dist[in_inds] = 0
         
     def getResults(self):
-        return self.nucLabels, self.nearestPxl_dist
+        return self.nucLabels, self.nearestPxl_distnearestPxl_dist
     
 def mask2rgb(mask, cmap):
     rgbmask = np.zeros(shape = (*mask.shape, 4))
