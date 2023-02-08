@@ -48,7 +48,7 @@ class RolonyAssigner:
         self.nearestPxl_dist[in_inds] = 0
         
     def getResults(self):
-        return self.nucLabels, self.nearestPxl_distnearestPxl_dist
+        return self.nucLabels, self.nearestPxl_dist
     
 def mask2rgb(mask, cmap):
     rgbmask = np.zeros(shape = (*mask.shape, 4))
