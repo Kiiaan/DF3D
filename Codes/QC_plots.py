@@ -11,6 +11,7 @@ import matplotlib.collections as col
 from cellpose.plot import mask_overlay
 from Assignment import plotRolonies2d2
 from multiprocessing import Process
+from matplotlib.colors import ListedColormap
 
 def normalize(im, ceil, amin=0):
     return (np.clip(im / ceil * 255, a_min = amin, a_max = 255)).astype(np.uint8)
@@ -34,10 +35,19 @@ def plotGene(spots, color='red', backgImg=None, ax=None, figheight=15, coords=['
     return ax
 
 def maskOverlay_plot(mask, bgImg, savepath, fig, ax):
-    print("Plotting the overlaid mask")
-    ax.imshow(mask_overlay(bgImg, mask))
+    # plot segmentation mask
+    myCmap = np.random.rand(np.max(mask) + 1, 4)
+    myCmap[:, -1] = 1
+    myCmap[0] = (0, 0, 0, 1)
+    myCmap = ListedColormap(myCmap)
+
+    ax.imshow(mask, cmap = myCmap)
     fig.savefig(savepath, dpi = 500, bbox_inches='tight')
-    print("Done plotting the overlaid mask")
+
+    # print("Plotting the overlaid mask")
+    # ax.imshow(mask_overlay(bgImg, mask))
+    # fig.savefig(savepath, dpi = 500, bbox_inches='tight')
+    # print("Done plotting the overlaid mask")
 
 def assignedRolonies_plot(fig, ax, spot_df, mask, bgImg, savepath, bgAlpha=0.8, coords=['xg', 'yg']):
     print("plotting assigned rolonies")
