@@ -4,10 +4,10 @@
  dir_data_raw: "/media/NAS1/Kian_NAS1/DART_FISH/Raw/220601_PolyATest/K2100233_2-2/"
 
  # where the maximum projected data is stored
- proj_dir: "../../K2100233_2-2_spd/2_Projected/"
+ proj_dir: "../2_Projected/"
 
  # where the registered data is stored
- reg_dir: "../../K2100233_2-2_spd/1_Registered/"
+ reg_dir: "../1_Registered/"
 
  # list of all rounds to be registered
  reg_rounds: ["0_anchor2", "1_dc0", "2_dc1", "3_dc2", "4_dc3", "5_dc4", "6_dc5", "7_dc6", "8_DRAQ5"]
@@ -79,7 +79,7 @@
 
  ######## Stitching paramteres ########
  # where stitching results are saved 
- stitch_dir: "../../K2100233_2-2_spd/2_Projected/stitched/"
+ stitch_dir: "../2_Projected/stitched/"
 
  # rounds to be stitched. Has to be compatible with `reg_rounds`. If null, `reg_rounds` will be used.
  stch_rounds: null
