@@ -1,4 +1,6 @@
-# How to run
+# DART-FISH Pipeline
+This repo contains the necessary codes to process DART-FISH imaging data (https://doi.org/10.1101/2023.08.16.553610). It processes the raw fluorescent images to obtain various outputs including the count matrix, segmentation mask and spot table. For a demonstration of the pipeline, see https://zenodo.org/record/8253772.
+## How to run
 1. All the parameters relevant to the various steps of the pipeline are gathered in DF3D/Codes/params.yaml
 * This includes the path to the raw data, and the paths to all the subsequent directories.
 2. The modules of the code, i.e., registration, projection, stitching, decoding, segementation, are run sequentially by DF3D/Codes/main.py with params.yaml as input
@@ -24,16 +26,16 @@ Those modules that import the microscope raw data, e.g., image registration (Ali
 ```
 where `s` is the field of view (FOV) number and  ```z``` the number for z-stack. The related files can be modified to adapt any directory structure without the need to change other modules. 
 
-# Overall installation procedure:
+## Overall installation procedure:
 1. Install a conda environment using the provided `.yaml` file
 2. Build and install SimpleElastix
 3. (Uncertain) Resolve errors regarding `GLIBCXX_3.4.26`
-## Installation the conda env
+### Installation the conda env
 ```
 conda env create -f DF221115_env.yaml
 conda activate DF_221115
 ```
-## Install SimpleElastix from scratch:
+### Install SimpleElastix from scratch:
 ```
 cd ~/packages
 mkdir SimpleElastix_221115
@@ -46,7 +48,7 @@ make -j8
 cd SimpleITK-build/Wrapping/Python/
 python Packaging/setup.py install --user
 ```
-## Error with `GLIBCXX_3.4.26`
+### Error with `GLIBCXX_3.4.26`
 I received such error with this environment's settings when running the segmentation_driver.py:
 ```
 ImportError: /usr/lib/x86_64-linux-gnu/libstdc++.so.6: version `GLIBCXX_3.4.26' not found (required by /media/Home_Raid1_Voyager/kian/anaconda3/envs/DF_221115/lib/python3.8/site-packages/scipy/linalg/_matfuncs_sqrtm_triu.cpython-38-x86_64-linux-gnu.so)
