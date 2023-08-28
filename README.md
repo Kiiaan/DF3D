@@ -3,14 +3,16 @@ This repo contains the necessary codes to process DART-FISH imaging data (https:
 ## How to run
 1. All the parameters relevant to the various steps of the pipeline are gathered in DF3D/Codes/params.yaml
 * This includes the path to the raw data, and the paths to all the subsequent directories.
-2. The modules of the code, i.e., registration, projection, stitching, decoding, segementation, are run sequentially by DF3D/Codes/main.py with params.yaml as input
+2. The modules of the code, i.e., 3D registration, 2D projection, stitching, decoding, segementation, are run sequentially by DF3D/Codes/main.py with params.yaml as input
 ```
 # working directory should be set at DF3D/Codes/
 python main.py params.yaml
 # OR
 bash run_pipeline.sh
 ```
-## Notes
+Note that the most computation-intensive steps are 3D image registration and sparse deconvolution (SpD). Each field of view takes 5 minutes to register and 10 minutes to decode on our server (with Intel Xeon CPU E5-2697A v4 @ 2.60GHz). But the exact run time of the pipeline depends on the number of fields of view, the number of z-stacks, and the number of cores used for each step. 
+
+## Raw data format
 Those modules that import the microscope raw data, e.g., image registration (AlignerDriver_3D.py), were written for the directory structure provided by a Leica SP8 microscope:
 ```
 "project_directory"/
@@ -26,16 +28,19 @@ Those modules that import the microscope raw data, e.g., image registration (Ali
 ```
 where `s` is the field of view (FOV) number and  ```z``` the number for z-stack. The related files can be modified to adapt any directory structure without the need to change other modules. 
 
-## Overall installation procedure:
+## Installation procedure:
 1. Install a conda environment using the provided `.yaml` file
 2. Build and install SimpleElastix
 3. (Uncertain) Resolve errors regarding `GLIBCXX_3.4.26`
-### Installation the conda env
+Note that this pipeline has been tested only on Ubuntu 22.04.1.
+### Installing the conda environment
+Installing the environment requires having Anaconda. See [here]([https://www.anaconda.com](https://docs.anaconda.com/free/anaconda/install/linux/) if you don't have Anaconda installed. The installation should not take more than 15 minutes. 
 ```
 conda env create -f DF221115_env.yaml
 conda activate DF_221115
 ```
-### Install SimpleElastix from scratch:
+### Installing SimpleElastix from scratch:
+This step can take up to a few hours depending on the system. 
 ```
 cd ~/packages
 mkdir SimpleElastix_221115
